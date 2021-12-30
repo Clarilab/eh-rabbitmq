@@ -283,6 +283,10 @@ func (b *EventBus) handler(
 				log.Printf("eventhorizon: missed error in RabbitMQ event bus: %s", err)
 			}
 
+			if b.dlx {
+				return rabbitmq.NackRequeue
+			}
+
 			return rabbitmq.NackDiscard
 		}
 
@@ -298,6 +302,10 @@ func (b *EventBus) handler(
 			case b.errCh <- &eh.EventBusError{Err: err, Ctx: ctx, Event: event}:
 			default:
 				log.Printf("eventhorizon: missed error in RabbitMQ event bus: %s", err)
+			}
+
+			if b.dlx {
+				return rabbitmq.NackRequeue
 			}
 
 			return rabbitmq.NackDiscard
