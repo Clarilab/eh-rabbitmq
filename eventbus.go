@@ -284,10 +284,10 @@ func (b *EventBus) handler(
 			}
 
 			if b.dlx {
-				return rabbitmq.NackRequeue
+				return rabbitmq.NackDiscard
 			}
 
-			return rabbitmq.NackDiscard
+			return rabbitmq.NackRequeue
 		}
 
 		// Ignore non-matching events.
@@ -305,10 +305,10 @@ func (b *EventBus) handler(
 			}
 
 			if b.dlx {
-				return rabbitmq.NackRequeue
+				return rabbitmq.NackDiscard
 			}
 
-			return rabbitmq.NackDiscard
+			return rabbitmq.NackRequeue
 		}
 
 		return rabbitmq.Ack
