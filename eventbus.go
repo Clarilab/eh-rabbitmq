@@ -42,8 +42,9 @@ type EventBus struct {
 	wg           sync.WaitGroup
 	codec        eh.EventCodec
 	publisher    *rabbitmq.Publisher
-	dlxttl       time.Duration
-	dlx          bool
+	useRetry     bool
+	maxRetries   int64
+	queueDelays  []time.Duration
 }
 
 // NewEventBus creates an EventBus, with optional settings.
@@ -99,20 +100,21 @@ func WithCodec(codec eh.EventCodec) Option {
 	}
 }
 
-// WithDLX enables/disables a dead letter exchange for events that ran into an error.
-func WithDLX(dlx bool) Option {
-	return func(b *EventBus) error {
-		b.dlx = dlx
-		b.dlxttl = time.Minute
+// WithRetry enables event retries. If maxRetries is bigger than the number of delays provided,
+// it will use the last value until maxRetries has been reached.
+func WithRetry(maxRetries int64, delays []time.Duration) Option {
+	return func(bus *EventBus) error {
+		if maxRetries <= 0 {
+			maxRetries = 10
+		}
 
-		return nil
-	}
-}
+		if len(delays) == 0 {
+			delays = []time.Duration{time.Second, 10 * time.Second, time.Minute, 10 * time.Minute, time.Hour}
+		}
 
-// WithDLXTTL sets the TTL for dead letter events.
-func WithDLXTTL(ttl time.Duration) Option {
-	return func(b *EventBus) error {
-		b.dlxttl = ttl
+		bus.useRetry = true
+		bus.maxRetries = maxRetries
+		bus.queueDelays = delays
 
 		return nil
 	}
@@ -185,8 +187,6 @@ func (b *EventBus) AddHandler(ctx context.Context, m eh.EventMatcher, h eh.Event
 	// Register handler.
 	b.registered[h.HandlerType()] = struct{}{}
 
-	handler := b.handler(ctx, m, h)
-
 	consumerName := groupName + "_" + b.clientID
 
 	optionFuncs := []func(*rabbitmq.ConsumeOptions){
@@ -197,23 +197,18 @@ func (b *EventBus) AddHandler(ctx context.Context, m eh.EventMatcher, h eh.Event
 		rabbitmq.WithConsumeOptionsConsumerName(consumerName),
 	}
 
+	dlxName := "dlx_" + b.exchangeName
+	dlQueueName := "dlx_" + groupName
 	filters := createFilter(b.topic, m)
+	handler := b.handler(ctx, m, h, dlxName, dlQueueName)
 
-	if b.dlx {
-		deadLetterExchangeName := "dlx_" + b.exchangeName
-		deadLetterQueueName := "dlx_" + groupName
+	if b.useRetry {
 		requeueRoutingKey := groupName + "_requeue"
 
 		// add routing key for re-queued messages
 		filters = append(filters, requeueRoutingKey)
 
-		// set dead letter exchange
-		optionFuncs = append(optionFuncs, rabbitmq.WithConsumeOptionsQueueArgs(map[string]interface{}{
-			"x-dead-letter-exchange":    deadLetterExchangeName,
-			"x-dead-letter-routing-key": deadLetterQueueName,
-		}))
-
-		err = b.declareDLX(deadLetterExchangeName, deadLetterQueueName, requeueRoutingKey)
+		err = b.declareDLX(dlxName, dlQueueName, requeueRoutingKey)
 		if err != nil {
 			return fmt.Errorf("failed to declare dead letter exchange: %w", err)
 		}
@@ -272,22 +267,23 @@ func (b *EventBus) handler(
 	ctx context.Context,
 	m eh.EventMatcher,
 	h eh.EventHandler,
+	dlxName, dlQueueName string,
 ) func(d rabbitmq.Delivery) rabbitmq.Action {
 	return func(msg rabbitmq.Delivery) rabbitmq.Action {
 		event, ctx, err := b.codec.UnmarshalEvent(ctx, msg.Body)
 		if err != nil {
-			err = fmt.Errorf("could not unmarshal event: %w", err)
-			select {
-			case b.errCh <- &eh.EventBusError{Err: err, Ctx: ctx}:
-			default:
-				log.Printf("eventhorizon: missed error in RabbitMQ event bus: %s", err)
+			b.sendErrToErrChannel(err, h, ctx, event)
+
+			if b.useRetry {
+				action, err := b.deadLetterMessage(&msg, dlxName, dlQueueName)
+				if err != nil {
+					b.sendErrToErrChannel(err, h, ctx, event)
+				}
+
+				return action
 			}
 
-			if b.dlx {
-				return rabbitmq.NackDiscard
-			}
-
-			return rabbitmq.NackRequeue
+			return rabbitmq.NackDiscard
 		}
 
 		// Ignore non-matching events.
@@ -297,21 +293,30 @@ func (b *EventBus) handler(
 
 		// Handle the event if it did match.
 		if err := h.HandleEvent(ctx, event); err != nil {
-			err = fmt.Errorf("could not handle event (%s): %w", h.HandlerType(), err)
-			select {
-			case b.errCh <- &eh.EventBusError{Err: err, Ctx: ctx, Event: event}:
-			default:
-				log.Printf("eventhorizon: missed error in RabbitMQ event bus: %s", err)
+			b.sendErrToErrChannel(err, h, ctx, event)
+
+			if b.useRetry {
+				action, err := b.deadLetterMessage(&msg, dlxName, dlQueueName)
+				if err != nil {
+					b.sendErrToErrChannel(err, h, ctx, event)
+				}
+
+				return action
 			}
 
-			if b.dlx {
-				return rabbitmq.NackDiscard
-			}
-
-			return rabbitmq.NackRequeue
+			return rabbitmq.NackDiscard
 		}
 
 		return rabbitmq.Ack
+	}
+}
+
+func (b *EventBus) sendErrToErrChannel(err error, h eh.EventHandler, ctx context.Context, event eh.Event) {
+	err = fmt.Errorf("could not handle event (%s): %w", h.HandlerType(), err)
+	select {
+	case b.errCh <- &eh.EventBusError{Err: err, Ctx: ctx, Event: event}:
+	default:
+		log.Printf("eventhorizon: missed error in RabbitMQ event bus: %s", err)
 	}
 }
 
@@ -331,7 +336,49 @@ func createFilter(topic string, m eh.EventMatcher) []string {
 	}
 }
 
-func (b *EventBus) declareDLX(deadLetterExchangeName, deadLetterQueueName, requeueRoutingKey string) error {
+func (b *EventBus) deadLetterMessage(
+	delivery *rabbitmq.Delivery,
+	dlxName, dlQueuePrefix string,
+) (rabbitmq.Action, error) {
+	retryCount, ok := delivery.Headers["x-retry-count"].(int32)
+	if !ok {
+		retryCount = 0
+	}
+
+	// drop the event after enough retries
+	if int64(retryCount) >= b.maxRetries {
+		return rabbitmq.NackDiscard, nil
+	}
+
+	var ttl time.Duration
+
+	// if retryCount exceeds number of delays, use the last defined delay value
+	if int(retryCount) >= len(b.queueDelays) {
+		ttl = b.queueDelays[len(b.queueDelays)-1]
+	} else {
+		ttl = b.queueDelays[retryCount]
+	}
+
+	headers := rabbitmq.Table(delivery.Headers)
+	headers["x-retry-count"] = retryCount + 1
+
+	err := b.publisher.Publish(
+		delivery.Body,
+		[]string{dlQueuePrefix + "_" + ttl.String()},
+		rabbitmq.WithPublishOptionsContentType("application/json"),
+		rabbitmq.WithPublishOptionsMandatory,
+		rabbitmq.WithPublishOptionsPersistentDelivery,
+		rabbitmq.WithPublishOptionsExchange(dlxName),
+		rabbitmq.WithPublishOptionsHeaders(headers),
+	)
+	if err != nil {
+		return rabbitmq.NackRequeue, fmt.Errorf("failed to publish dead letter message: %w", err)
+	}
+
+	return rabbitmq.Ack, nil
+}
+
+func (b *EventBus) declareDLX(dlxName, dlQueuePrefix, requeueRoutingKey string) error {
 	connection, err := amqp091.Dial(b.addr)
 	if err != nil {
 		return fmt.Errorf("failed to connect to amqp091: %w", err)
@@ -342,44 +389,50 @@ func (b *EventBus) declareDLX(deadLetterExchangeName, deadLetterQueueName, reque
 		return fmt.Errorf("failed to open amqp091 channel: %w", err)
 	}
 
+	// declare a single dead letter exchange
 	err = channel.ExchangeDeclare(
-		deadLetterExchangeName, // name
-		"direct",               // kind
-		true,                   // durable
-		false,                  // autoDelete
-		false,                  // internal
-		false,                  // noWait
-		nil,                    // args
+		dlxName,  // name
+		"direct", // kind
+		true,     // durable
+		false,    // autoDelete
+		false,    // internal
+		false,    // noWait
+		nil,      // args
 	)
 	if err != nil {
 		return fmt.Errorf("failed to declare amqp091 dead letter exchange: %w", err)
 	}
 
-	_, err = channel.QueueDeclare(
-		deadLetterQueueName, // name
-		true,                // durable
-		false,               // autoDelete
-		false,               // exclusive
-		false,               // noWait
-		map[string]interface{}{
-			"x-dead-letter-exchange":    b.exchangeName,
-			"x-dead-letter-routing-key": requeueRoutingKey,
-			"x-message-ttl":             b.dlxttl.Milliseconds(),
-		}, // args
-	)
-	if err != nil {
-		return fmt.Errorf("failed to declare amqp091 dead letter queue: %w", err)
-	}
+	// declare and bind queues with ttl values
+	for _, ttl := range b.queueDelays {
+		queueName := dlQueuePrefix + "_" + ttl.String()
 
-	err = channel.QueueBind(
-		deadLetterQueueName,    // queueName
-		deadLetterQueueName,    // routingKey
-		deadLetterExchangeName, // exchange
-		false,                  // noWait
-		nil,                    // args
-	)
-	if err != nil {
-		return fmt.Errorf("failed to bind to amqp091 dead letter exchange: %w", err)
+		_, err = channel.QueueDeclare(
+			queueName, // name
+			true,      // durable
+			false,     // autoDelete
+			false,     // exclusive
+			false,     // noWait
+			map[string]interface{}{
+				"x-dead-letter-exchange":    b.exchangeName, // original exchange, in which the event gets retried
+				"x-dead-letter-routing-key": requeueRoutingKey,
+				"x-message-ttl":             ttl.Milliseconds(),
+			}, // args
+		)
+		if err != nil {
+			return fmt.Errorf("failed to declare amqp091 dead letter queue: %w", err)
+		}
+
+		err = channel.QueueBind(
+			queueName, // queueName
+			queueName, // routingKey
+			dlxName,   // exchange
+			false,     // noWait
+			nil,       // args
+		)
+		if err != nil {
+			return fmt.Errorf("failed to bind to amqp091 dead letter exchange: %w", err)
+		}
 	}
 
 	err = channel.Close()
