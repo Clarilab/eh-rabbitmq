@@ -16,12 +16,14 @@ package rabbitmq
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	eh "github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/codec/json"
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/wagslane/go-rabbitmq"
 	"log"
+	"math"
 	"sync"
 	"time"
 )
@@ -100,8 +102,15 @@ func WithCodec(codec eh.EventCodec) Option {
 	}
 }
 
+const (
+	// InfiniteRetries is the value to retry without discarding an event.
+	InfiniteRetries = math.MaxInt64
+
+	retryCountHeader = "x-retry-count"
+)
+
 // WithRetry enables event retries. If maxRetries is bigger than the number of delays provided,
-// it will use the last value until maxRetries has been reached.
+// it will use the last value until maxRetries has been reached. Use value -1 to never drop the message.
 func WithRetry(maxRetries int64, delays []time.Duration) Option {
 	return func(bus *EventBus) error {
 		if maxRetries <= 0 {
@@ -263,6 +272,9 @@ func (b *EventBus) handle(
 	consumer.Disconnect()
 }
 
+// ErrDiscardEvent is used to drop an event manually.
+var ErrDiscardEvent = errors.New("drop event from eventbus")
+
 func (b *EventBus) handler(
 	ctx context.Context,
 	m eh.EventMatcher,
@@ -291,9 +303,23 @@ func (b *EventBus) handler(
 			return rabbitmq.Ack
 		}
 
+		if b.useRetry {
+			retryCount, ok := msg.Headers[retryCountHeader].(int32)
+			if !ok {
+				retryCount = 0
+			}
+
+			ctx = NewContextWithNumRetries(ctx, int64(retryCount))
+		}
+
 		// Handle the event if it did match.
 		if err := h.HandleEvent(ctx, event); err != nil {
 			b.sendErrToErrChannel(err, h, ctx, event)
+
+			// discard event manually
+			if errors.Is(err, ErrDiscardEvent) {
+				return rabbitmq.NackDiscard
+			}
 
 			if b.useRetry {
 				action, err := b.deadLetterMessage(&msg, dlxName, dlQueueName)
@@ -340,7 +366,7 @@ func (b *EventBus) deadLetterMessage(
 	delivery *rabbitmq.Delivery,
 	dlxName, dlQueuePrefix string,
 ) (rabbitmq.Action, error) {
-	retryCount, ok := delivery.Headers["x-retry-count"].(int32)
+	retryCount, ok := delivery.Headers[retryCountHeader].(int32)
 	if !ok {
 		retryCount = 0
 	}
@@ -360,7 +386,7 @@ func (b *EventBus) deadLetterMessage(
 	}
 
 	headers := rabbitmq.Table(delivery.Headers)
-	headers["x-retry-count"] = retryCount + 1
+	headers[retryCountHeader] = retryCount + 1
 
 	err := b.publisher.Publish(
 		delivery.Body,
