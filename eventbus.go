@@ -110,7 +110,7 @@ const (
 )
 
 // WithRetry enables event retries. If maxRetries is bigger than the number of delays provided,
-// it will use the last value until maxRetries has been reached. Use value -1 to never drop the message.
+// it will use the last value until maxRetries has been reached. Use InfiniteRetries to never drop the message.
 func WithRetry(maxRetries int64, delays []time.Duration) Option {
 	return func(bus *EventBus) error {
 		if maxRetries <= 0 {
