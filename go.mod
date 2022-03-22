@@ -4,8 +4,8 @@ go 1.17
 
 require (
 	github.com/looplab/eventhorizon v0.15.5
-	github.com/rabbitmq/amqp091-go v1.2.0
-	github.com/wagslane/go-rabbitmq v0.7.0
+	github.com/rabbitmq/amqp091-go v1.3.0
+	github.com/wagslane/go-rabbitmq v0.7.2
 )
 
 require (
