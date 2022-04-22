@@ -18,14 +18,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	eh "github.com/looplab/eventhorizon"
-	"github.com/looplab/eventhorizon/codec/json"
-	"github.com/rabbitmq/amqp091-go"
-	"github.com/wagslane/go-rabbitmq"
 	"log"
 	"math"
 	"sync"
 	"time"
+
+	eh "github.com/looplab/eventhorizon"
+	"github.com/looplab/eventhorizon/codec/json"
+	"github.com/rabbitmq/amqp091-go"
+	"github.com/wagslane/go-rabbitmq"
 )
 
 // EventBus is a local event bus that delegates handling of published events
@@ -79,7 +80,7 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 
 	publisher, err := rabbitmq.NewPublisher(
 		addr,
-		amqp091.Config{},
+		rabbitmq.Config{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating publisher: %w", err)
@@ -188,7 +189,7 @@ func (b *EventBus) AddHandler(ctx context.Context, m eh.EventMatcher, h eh.Event
 	// Get or create the subscription.
 	groupName := fmt.Sprintf("%s_%s", b.appID, h.HandlerType())
 
-	consumer, err := rabbitmq.NewConsumer(b.addr, amqp091.Config{})
+	consumer, err := rabbitmq.NewConsumer(b.addr, rabbitmq.Config{})
 	if err != nil {
 		return fmt.Errorf("could not declare consumer: %w", err)
 	}
@@ -235,7 +236,7 @@ func (b *EventBus) AddHandler(ctx context.Context, m eh.EventMatcher, h eh.Event
 	// Handle until context is cancelled.
 	b.wg.Add(1)
 
-	go b.handle(consumer, consumerName)
+	go b.handle(consumer)
 
 	return nil
 }
@@ -251,7 +252,7 @@ func (b *EventBus) Close() error {
 	b.cancel()
 	b.wg.Wait()
 
-	err := b.publisher.StopPublishing()
+	err := b.publisher.Close()
 	if err != nil {
 		return fmt.Errorf("failed to stop publishing: %w", err)
 	}
@@ -262,14 +263,12 @@ func (b *EventBus) Close() error {
 // Handles all events coming in on the channel.
 func (b *EventBus) handle(
 	consumer rabbitmq.Consumer,
-	consumerName string,
 ) {
 	defer b.wg.Done()
 
 	<-b.cctx.Done()
 
-	consumer.StopConsuming(consumerName, false)
-	consumer.Disconnect()
+	consumer.Close()
 }
 
 // ErrDiscardEvent is used to drop an event manually.
@@ -284,12 +283,12 @@ func (b *EventBus) handler(
 	return func(msg rabbitmq.Delivery) rabbitmq.Action {
 		event, ctx, err := b.codec.UnmarshalEvent(ctx, msg.Body)
 		if err != nil {
-			b.sendErrToErrChannel(err, h, ctx, event)
+			b.sendErrToErrChannel(ctx, err, h, event)
 
 			if b.useRetry {
 				action, err := b.deadLetterMessage(&msg, dlxName, dlQueueName)
 				if err != nil {
-					b.sendErrToErrChannel(err, h, ctx, event)
+					b.sendErrToErrChannel(ctx, err, h, event)
 				}
 
 				return action
@@ -314,7 +313,7 @@ func (b *EventBus) handler(
 
 		// Handle the event if it did match.
 		if err := h.HandleEvent(ctx, event); err != nil {
-			b.sendErrToErrChannel(err, h, ctx, event)
+			b.sendErrToErrChannel(ctx, err, h, event)
 
 			// discard event manually
 			if errors.Is(err, ErrDiscardEvent) {
@@ -324,7 +323,7 @@ func (b *EventBus) handler(
 			if b.useRetry {
 				action, err := b.deadLetterMessage(&msg, dlxName, dlQueueName)
 				if err != nil {
-					b.sendErrToErrChannel(err, h, ctx, event)
+					b.sendErrToErrChannel(ctx, err, h, event)
 				}
 
 				return action
@@ -337,7 +336,7 @@ func (b *EventBus) handler(
 	}
 }
 
-func (b *EventBus) sendErrToErrChannel(err error, h eh.EventHandler, ctx context.Context, event eh.Event) {
+func (b *EventBus) sendErrToErrChannel(ctx context.Context, err error, h eh.EventHandler, event eh.Event) {
 	err = fmt.Errorf("could not handle event (%s): %w", h.HandlerType(), err)
 	select {
 	case b.errCh <- &eh.EventBusError{Err: err, Ctx: ctx, Event: event}:
