@@ -145,7 +145,7 @@ func (b *EventBus) HandleEvent(ctx context.Context, event eh.Event) error {
 	return b.PublishEvent(ctx, event)
 }
 
-// PublishEvent calls HandleEvent, just has a better name.
+// PublishEvent publishes an event. Same as HandleEvent, but with better naming.
 func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
 	data, err := b.codec.MarshalEvent(ctx, event)
 	if err != nil {
