@@ -142,6 +142,11 @@ const (
 
 // HandleEvent implements the HandleEvent method of the eventhorizon.EventHandler interface.
 func (b *EventBus) HandleEvent(ctx context.Context, event eh.Event) error {
+	return b.PublishEvent(ctx, event)
+}
+
+// PublishEvent calls HandleEvent, just has a better name.
+func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
 	data, err := b.codec.MarshalEvent(ctx, event)
 	if err != nil {
 		return fmt.Errorf("could not marshal event: %w", err)
