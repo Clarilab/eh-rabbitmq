@@ -3,9 +3,9 @@ module github.com/Clarilab/eh-rabbitmq
 go 1.17
 
 require (
-	github.com/looplab/eventhorizon v0.15.5
-	github.com/rabbitmq/amqp091-go v1.3.4
-	github.com/wagslane/go-rabbitmq v0.10.0
+	github.com/looplab/eventhorizon v0.16.0
+	github.com/rabbitmq/amqp091-go v1.5.0
+	github.com/wagslane/go-rabbitmq v0.11.1
 )
 
 require (

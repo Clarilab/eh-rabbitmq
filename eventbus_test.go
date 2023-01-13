@@ -18,14 +18,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	rabbitmq "github.com/Clarilab/eh-rabbitmq"
-	"github.com/looplab/eventhorizon/uuid"
 	"os"
 	"testing"
 	"time"
 
+	rabbitmq "github.com/Clarilab/eh-rabbitmq"
 	eh "github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/eventbus"
+	"github.com/looplab/eventhorizon/uuid"
 )
 
 func TestAddHandlerIntegration(t *testing.T) {

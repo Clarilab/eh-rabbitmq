@@ -44,6 +44,7 @@ type EventBus struct {
 	cancel       context.CancelFunc
 	wg           sync.WaitGroup
 	codec        eh.EventCodec
+	conn         *rabbitmq.Conn
 	publisher    *rabbitmq.Publisher
 	useRetry     bool
 	maxRetries   int64
@@ -78,9 +79,19 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 		}
 	}
 
-	publisher, err := rabbitmq.NewPublisher(
+	conn, err := rabbitmq.NewConn(
 		addr,
-		rabbitmq.Config{},
+		rabbitmq.WithConnectionOptionsLogging,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating rabbitMQ connection: %w", err)
+	}
+
+	b.conn = conn
+
+	publisher, err := rabbitmq.NewPublisher(
+		conn,
+		rabbitmq.WithPublisherOptionsLogging,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating publisher: %w", err)
@@ -194,23 +205,10 @@ func (b *EventBus) AddHandler(ctx context.Context, m eh.EventMatcher, h eh.Event
 	// Get or create the subscription.
 	groupName := fmt.Sprintf("%s_%s", b.appID, h.HandlerType())
 
-	consumer, err := rabbitmq.NewConsumer(b.addr, rabbitmq.Config{})
-	if err != nil {
-		return fmt.Errorf("could not declare consumer: %w", err)
-	}
-
 	// Register handler.
 	b.registered[h.HandlerType()] = struct{}{}
 
 	consumerName := groupName + "_" + b.clientID
-
-	optionFuncs := []func(*rabbitmq.ConsumeOptions){
-		rabbitmq.WithConsumeOptionsQueueDurable,
-		rabbitmq.WithConsumeOptionsBindingExchangeName(b.exchangeName),
-		rabbitmq.WithConsumeOptionsBindingExchangeKind("topic"),
-		rabbitmq.WithConsumeOptionsBindingExchangeDurable,
-		rabbitmq.WithConsumeOptionsConsumerName(consumerName),
-	}
 
 	dlxName := "dlx_" + b.exchangeName
 	dlQueueName := "dlx_" + groupName
@@ -223,24 +221,37 @@ func (b *EventBus) AddHandler(ctx context.Context, m eh.EventMatcher, h eh.Event
 		// add routing key for re-queued messages
 		filters = append(filters, requeueRoutingKey)
 
-		err = b.declareDLX(dlxName, dlQueueName, requeueRoutingKey)
+		err := b.declareDLX(dlxName, dlQueueName, requeueRoutingKey)
 		if err != nil {
 			return fmt.Errorf("failed to declare dead letter exchange: %w", err)
 		}
 	}
 
-	if err := consumer.StartConsuming(
+	optionFuncs := []func(*rabbitmq.ConsumerOptions){
+		rabbitmq.WithConsumerOptionsLogging,
+		rabbitmq.WithConsumerOptionsQueueDurable,
+		rabbitmq.WithConsumerOptionsExchangeName(b.exchangeName),
+		rabbitmq.WithConsumerOptionsExchangeKind("topic"),
+		rabbitmq.WithConsumerOptionsExchangeDurable,
+		rabbitmq.WithConsumerOptionsConsumerName(consumerName),
+	}
+
+	for _, routingKey := range filters {
+		optionFuncs = append(optionFuncs, rabbitmq.WithConsumerOptionsRoutingKey(routingKey))
+	}
+
+	consumer, err := rabbitmq.NewConsumer(
+		b.conn,
 		handler,
 		groupName,
-		filters,
 		optionFuncs...,
-	); err != nil {
-		return fmt.Errorf("failed to start consuming events: %w", err)
+	)
+	if err != nil {
+		return fmt.Errorf("could not declare consumer: %w", err)
 	}
 
 	// Handle until context is cancelled.
 	b.wg.Add(1)
-
 	go b.handle(consumer)
 
 	return nil
@@ -256,8 +267,9 @@ func (b *EventBus) Close() error {
 	// Stop handling.
 	b.cancel()
 	b.wg.Wait()
+	b.publisher.Close()
 
-	err := b.publisher.Close()
+	err := b.conn.Close()
 	if err != nil {
 		return fmt.Errorf("failed to stop publishing: %w", err)
 	}
@@ -267,7 +279,7 @@ func (b *EventBus) Close() error {
 
 // Handles all events coming in on the channel.
 func (b *EventBus) handle(
-	consumer rabbitmq.Consumer,
+	consumer *rabbitmq.Consumer,
 ) {
 	defer b.wg.Done()
 
