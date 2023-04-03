@@ -23,11 +23,14 @@ import (
 	"sync"
 	"time"
 
+	ehtracygo "github.com/Clarilab/eh-tracygo"
 	eh "github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/codec/json"
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/wagslane/go-rabbitmq"
 )
+
+const keyCorrelationID string = "X-Correlation-ID"
 
 // EventBus is a local event bus that delegates handling of published events
 // to all matching registered handlers, in order of registration.
@@ -166,6 +169,11 @@ func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
 	headers := map[string]interface{}{
 		aggregateTypeKey: event.AggregateType().String(),
 		eventTypeKey:     event.EventType().String(),
+	}
+
+	correlationID, ok := ctx.Value(keyCorrelationID).(string)
+	if ok {
+		headers[keyCorrelationID] = correlationID
 	}
 
 	err = b.publisher.Publish(
@@ -326,6 +334,11 @@ func (b *EventBus) handler(
 			}
 
 			ctx = NewContextWithNumRetries(ctx, int64(retryCount))
+		}
+
+		correlationID, ok := msg.Headers[keyCorrelationID].(string)
+		if ok {
+			ctx = ehtracygo.NewContext(ctx, correlationID)
 		}
 
 		// Handle the event if it did match.
