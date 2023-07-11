@@ -6,5 +6,8 @@ rabbitmq:
 remove-rabbitmq:
 	docker rm -f eh-rabbitmq
 
+vet:
+	go vet ./...
+
 test:
 	go test -v -race -short ./...
