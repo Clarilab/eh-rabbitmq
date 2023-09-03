@@ -56,8 +56,9 @@ type EventBus struct {
 	wg           sync.WaitGroup
 	eventCodec   eh.EventCodec
 	publishConn  *clarimq.Connection
-	consumeConn  *clarimq.Connection
 	publisher    *clarimq.Publisher
+	consumeConn  *clarimq.Connection
+	consumerMu   sync.RWMutex
 	useRetry     bool
 	maxRetries   int64
 	queueDelays  []time.Duration
@@ -213,7 +214,9 @@ func (b *EventBus) handle(
 
 	<-b.ctx.Done()
 
+	b.consumerMu.Lock()
 	consumer.Close()
+	b.consumerMu.Unlock()
 }
 
 func (b *EventBus) handler(
