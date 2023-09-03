@@ -23,25 +23,28 @@ import (
 	"time"
 
 	rabbitmq "github.com/Clarilab/eh-rabbitmq"
-	eh "github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/eventbus"
 	"github.com/looplab/eventhorizon/uuid"
 )
 
 func TestAddHandlerIntegration(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
 
-	bus1, _, err := newTestEventBus("")
+	bus, _, err := newTestEventBus("")
 	if err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
-	eventbus.TestAddHandler(t, bus1)
+	eventbus.TestAddHandler(t, bus)
 }
 
 func TestEventBusIntegration(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -62,6 +65,8 @@ func TestEventBusIntegration(t *testing.T) {
 }
 
 func TestEventBusLoadtest(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -87,7 +92,7 @@ func BenchmarkEventBus(b *testing.B) {
 	eventbus.Benchmark(b, bus)
 }
 
-func newTestEventBus(appID string) (eh.EventBus, string, error) {
+func newTestEventBus(appID string) (*rabbitmq.EventBus, string, error) {
 	// Connect to localhost if not running inside docker
 	addr := os.Getenv("RABBIT_ADDR")
 	if addr == "" {
