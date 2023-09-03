@@ -1,13 +1,16 @@
-default: rabbitmq test remove-rabbitmq
-
-rabbitmq:
-	docker run --restart always -d --hostname eh-rabbitmq --name eh-rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
-
-remove-rabbitmq:
-	docker rm -f eh-rabbitmq
+all: vet lint vuln test_integration
 
 vet:
 	go vet ./...
 
-test:
-	go test -v -race -short ./...
+lint:
+	golangci-lint run ./...
+
+vuln:
+	govulncheck ./...
+
+test_integration:
+	./run_integration_tests.sh
+
+test_benchmark:
+	go test -benchmem -bench=. -failfast -race -coverprofile=coverage.out

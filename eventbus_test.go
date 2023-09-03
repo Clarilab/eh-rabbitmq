@@ -74,7 +74,7 @@ func Test_Integration_EventBusLoadTest(t *testing.T) { //nolint:paralleltest // 
 	eventbus.LoadTest(t, bus)
 }
 
-func Benchmark_Test_Integration_EventBus(b *testing.B) {
+func Benchmark_EventBus(b *testing.B) {
 	bus, appID, err := newTestEventBus("")
 	if err != nil {
 		b.Fatal("there should be no error:", err)
