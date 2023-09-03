@@ -18,7 +18,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -27,9 +26,7 @@ import (
 	"github.com/looplab/eventhorizon/uuid"
 )
 
-func TestAddHandlerIntegration(t *testing.T) {
-	t.Parallel()
-
+func Test_Integration_AddHandler(t *testing.T) { //nolint:paralleltest // must not run in parallel
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -42,9 +39,7 @@ func TestAddHandlerIntegration(t *testing.T) {
 	eventbus.TestAddHandler(t, bus)
 }
 
-func TestEventBusIntegration(t *testing.T) {
-	t.Parallel()
-
+func Test_Integration_EventBus(t *testing.T) { //nolint:paralleltest // must not run in parallel
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -64,9 +59,7 @@ func TestEventBusIntegration(t *testing.T) {
 	eventbus.AcceptanceTest(t, bus1, bus2, time.Second)
 }
 
-func TestEventBusLoadtest(t *testing.T) {
-	t.Parallel()
-
+func Test_Integration_EventBusLoadTest(t *testing.T) { //nolint:paralleltest // must not run in parallel
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -81,7 +74,7 @@ func TestEventBusLoadtest(t *testing.T) {
 	eventbus.LoadTest(t, bus)
 }
 
-func BenchmarkEventBus(b *testing.B) {
+func Benchmark_Test_Integration_EventBus(b *testing.B) {
 	bus, appID, err := newTestEventBus("")
 	if err != nil {
 		b.Fatal("there should be no error:", err)
@@ -93,14 +86,6 @@ func BenchmarkEventBus(b *testing.B) {
 }
 
 func newTestEventBus(appID string) (*rabbitmq.EventBus, string, error) {
-	// Connect to localhost if not running inside docker
-	addr := os.Getenv("RABBIT_ADDR")
-	if addr == "" {
-		addr = "localhost:5672"
-	}
-
-	addr = "amqp://guest:guest@" + addr
-
 	// Get a random app ID.
 	if appID == "" {
 		bts := make([]byte, 8)
@@ -111,7 +96,7 @@ func newTestEventBus(appID string) (*rabbitmq.EventBus, string, error) {
 		appID = "app-" + hex.EncodeToString(bts)
 	}
 
-	bus, err := rabbitmq.NewEventBus(addr, appID, uuid.New().String(), "eh-rabbitmq-test", "rabbit")
+	bus, err := rabbitmq.NewEventBus("amqp://guest:guest@localhost:5672/", appID, uuid.New().String(), "eh-rabbitmq-test", "rabbit")
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create event bus: %w", err)
 	}
