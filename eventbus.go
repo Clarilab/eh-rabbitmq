@@ -260,7 +260,7 @@ func (b *EventBus) returnHandler(rtn clarimq.Return) {
 	}
 
 	b.logger.logError("return handler: event could not be published",
-		"tenant", namespace.FromContext(ctx),
+		"eh-namespace", namespace.FromContext(ctx),
 		"eventType", event.EventType(),
 		"exchange", rtn.Exchange,
 		"routingKey", rtn.RoutingKey,
