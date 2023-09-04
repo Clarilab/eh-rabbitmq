@@ -2,8 +2,6 @@ module github.com/Clarilab/eh-rabbitmq
 
 go 1.21
 
-toolchain go1.21.0
-
 require (
 	github.com/Clarilab/clarimq v0.2.0
 	github.com/Clarilab/eh-tracygo v1.0.0
