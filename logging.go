@@ -29,9 +29,3 @@ func (l *logger) logInfo(msg string, args ...any) {
 		l.loggers[i].Info(msg, args...)
 	}
 }
-
-func (l *logger) logWarn(msg string, args ...any) {
-	for i := range l.loggers {
-		l.loggers[i].Warn(msg, args...)
-	}
-}
