@@ -16,6 +16,7 @@ package rabbitmq
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -297,7 +298,7 @@ func (b *EventBus) setupConnections() error {
 
 	var err error
 
-	if b.publishConn, err = setupConnection(b.addr, b.logger,
+	if b.publishConn, err = b.setupConnection(
 		clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_publish_connection", b.appID)),
 		clarimq.WithConnectionOptionReturnHandler(b.returnHandler),
 		clarimq.WithConnectionOptionMultipleLoggers(b.loggers),
@@ -305,7 +306,7 @@ func (b *EventBus) setupConnections() error {
 		return fmt.Errorf(errMessage, err)
 	}
 
-	if b.consumeConn, err = setupConnection(b.addr, b.logger,
+	if b.consumeConn, err = b.setupConnection(
 		clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_consume_connection", b.appID)),
 		clarimq.WithConnectionOptionMultipleLoggers(b.loggers),
 	); err != nil {
@@ -319,10 +320,13 @@ func (b *EventBus) setupConnections() error {
 	return nil
 }
 
-func setupConnection(uri string, logger *logger, options ...clarimq.ConnectionOption) (*clarimq.Connection, error) {
+// ErrRecoveryFailed occurs when the recovery failed after a connection loss.
+var ErrRecoveryFailed = errors.New("failed to recover after connection loss")
+
+func (b *EventBus) setupConnection(options ...clarimq.ConnectionOption) (*clarimq.Connection, error) {
 	const errMessage = "failed to setup connection: %w"
 
-	conn, err := clarimq.NewConnection(uri, options...)
+	conn, err := clarimq.NewConnection(b.addr, options...)
 	if err != nil {
 		return nil, fmt.Errorf(errMessage, err)
 	}
@@ -333,7 +337,7 @@ func setupConnection(uri string, logger *logger, options ...clarimq.ConnectionOp
 				return
 			}
 
-			logger.logWarn("recovery failed", "error", err)
+			b.errCh <- fmt.Errorf(errMessage, ErrRecoveryFailed)
 		}
 	}()
 
