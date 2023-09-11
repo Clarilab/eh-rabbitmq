@@ -1,9 +1,9 @@
 module github.com/Clarilab/eh-rabbitmq
 
-go 1.21.1
+go 1.21
 
 require (
-	github.com/Clarilab/clarimq v0.3.0
+	github.com/Clarilab/clarimq v0.3.1
 	github.com/Clarilab/eh-tracygo v1.0.0
 	github.com/google/uuid v1.3.1
 	github.com/looplab/eventhorizon v0.16.0
