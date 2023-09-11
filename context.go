@@ -1,6 +1,8 @@
 package rabbitmq
 
-import "context"
+import (
+	"context"
+)
 
 // DefaultNumRetries is the retry value to use if not set in the context.
 const DefaultNumRetries = 0

@@ -11,22 +11,33 @@ on:
   workflow_dispatch:
   
 jobs:
-
-  test:
+  ci:
+    name: Vet, lint and test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.20.6'
+        go-version: ">=1.21.0"
 
     - name: Vet
-      run: go vet ./...
+      run: make vet
 
-    - name: Test
-      run: go test -short -v ./...
+    # the official golanci-lint-action logs a lot of errors (https://github.com/golangci/golangci-lint-action/issues/135)
+    # therefore it's replaced with a manual approach
+    # - name: Lint
+    #   uses: golangci/golangci-lint-action@v3
+
+    - name: Lint
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+        golangci-lint run --out-format=github-actions
+
+    - name: Integration Test
+      run: make test_integration
 
   govulncheck:
     runs-on: ubuntu-latest
@@ -35,5 +46,4 @@ jobs:
     - id: govulncheck
       uses: golang/govulncheck-action@v1
       with:
-         go-version-input: 1.20.6
-         go-package: ./...
+        go-package: ./...

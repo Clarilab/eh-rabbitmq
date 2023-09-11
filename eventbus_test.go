@@ -18,30 +18,28 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	rabbitmq "github.com/Clarilab/eh-rabbitmq"
-	eh "github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/eventbus"
 	"github.com/looplab/eventhorizon/uuid"
 )
 
-func TestAddHandlerIntegration(t *testing.T) {
+func Test_Integration_AddHandler(t *testing.T) { //nolint:paralleltest // must not run in parallel
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
 
-	bus1, _, err := newTestEventBus("")
+	bus, _, err := newTestEventBus("")
 	if err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
-	eventbus.TestAddHandler(t, bus1)
+	eventbus.TestAddHandler(t, bus)
 }
 
-func TestEventBusIntegration(t *testing.T) {
+func Test_Integration_EventBus(t *testing.T) { //nolint:paralleltest // must not run in parallel
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -61,7 +59,7 @@ func TestEventBusIntegration(t *testing.T) {
 	eventbus.AcceptanceTest(t, bus1, bus2, time.Second)
 }
 
-func TestEventBusLoadtest(t *testing.T) {
+func Test_Integration_EventBusLoadTest(t *testing.T) { //nolint:paralleltest // must not run in parallel
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -76,7 +74,7 @@ func TestEventBusLoadtest(t *testing.T) {
 	eventbus.LoadTest(t, bus)
 }
 
-func BenchmarkEventBus(b *testing.B) {
+func Benchmark_EventBus(b *testing.B) {
 	bus, appID, err := newTestEventBus("")
 	if err != nil {
 		b.Fatal("there should be no error:", err)
@@ -87,15 +85,7 @@ func BenchmarkEventBus(b *testing.B) {
 	eventbus.Benchmark(b, bus)
 }
 
-func newTestEventBus(appID string) (eh.EventBus, string, error) {
-	// Connect to localhost if not running inside docker
-	addr := os.Getenv("RABBIT_ADDR")
-	if addr == "" {
-		addr = "localhost:5672"
-	}
-
-	addr = "amqp://guest:guest@" + addr
-
+func newTestEventBus(appID string) (*rabbitmq.EventBus, string, error) {
 	// Get a random app ID.
 	if appID == "" {
 		bts := make([]byte, 8)
@@ -106,7 +96,7 @@ func newTestEventBus(appID string) (eh.EventBus, string, error) {
 		appID = "app-" + hex.EncodeToString(bts)
 	}
 
-	bus, err := rabbitmq.NewEventBus(addr, appID, uuid.New().String(), "eh-rabbitmq-test", "rabbit")
+	bus, err := rabbitmq.NewEventBus("amqp://guest:guest@localhost:5672/", appID, uuid.New().String(), "eh-rabbitmq-test", "rabbit")
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create event bus: %w", err)
 	}
