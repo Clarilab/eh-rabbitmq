@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/Clarilab/clarimq"
 	eh "github.com/looplab/eventhorizon"
 )
 
@@ -31,5 +32,12 @@ func WithRetry(maxRetries int64, delays []time.Duration) Option {
 		bus.useRetry = true
 		bus.maxRetries = maxRetries
 		bus.queueDelays = delays
+	}
+}
+
+// WithClariMQPublishingCache enables caching events that failed to be published.
+func WithClariMQPublishingCache(publishingCache clarimq.PublishingCache) Option {
+	return func(b *EventBus) {
+		b.publishingCache = publishingCache
 	}
 }

@@ -28,7 +28,6 @@ import (
 	"github.com/google/uuid"
 	eh "github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/codec/json"
-	"github.com/looplab/eventhorizon/namespace"
 )
 
 const (
@@ -44,27 +43,28 @@ const (
 // EventBus is a local event bus that delegates handling of published events
 // to all matching registered handlers, in order of registration.
 type EventBus struct {
-	appID        string
-	exchangeName string
-	topic        string
-	addr         string
-	clientID     string
-	registered   map[eh.EventHandlerType]struct{}
-	registeredMu sync.RWMutex
-	errCh        chan error
-	ctx          context.Context //nolint:containedctx // intended use
-	cancel       context.CancelFunc
-	wg           sync.WaitGroup
-	eventCodec   eh.EventCodec
-	publishConn  *clarimq.Connection
-	publisher    *clarimq.Publisher
-	consumeConn  *clarimq.Connection
-	consumerMu   sync.RWMutex
-	useRetry     bool
-	maxRetries   int64
-	queueDelays  []time.Duration
-	logger       *logger
-	loggers      []*slog.Logger
+	appID           string
+	exchangeName    string
+	topic           string
+	addr            string
+	clientID        string
+	registered      map[eh.EventHandlerType]struct{}
+	registeredMu    sync.RWMutex
+	errCh           chan error
+	ctx             context.Context //nolint:containedctx // intended use
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
+	eventCodec      eh.EventCodec
+	publishConn     *clarimq.Connection
+	publisher       *clarimq.Publisher
+	consumeConn     *clarimq.Connection
+	consumerMu      sync.RWMutex
+	useRetry        bool
+	maxRetries      int64
+	queueDelays     []time.Duration
+	logger          *logger
+	loggers         []*slog.Logger
+	publishingCache clarimq.PublishingCache
 }
 
 // NewEventBus creates an EventBus, with optional settings.
@@ -140,6 +140,12 @@ func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
 			},
 		),
 	); err != nil {
+		if errors.Is(err, clarimq.ErrPublishFailedChannelClosedCached) {
+			b.errCh <- fmt.Errorf(errMessage, err)
+
+			return nil
+		}
+
 		return fmt.Errorf(errMessage, err)
 	}
 
@@ -205,180 +211,4 @@ func (b *EventBus) Close() error {
 // Errors implements the Errors method of the eventhorizon.EventBus interface.
 func (b *EventBus) Errors() <-chan error {
 	return b.errCh
-}
-
-// Handles all events coming in on the channel.
-func (b *EventBus) handle(
-	consumer *clarimq.Consumer,
-) {
-	defer b.wg.Done()
-
-	<-b.ctx.Done()
-
-	b.consumerMu.Lock()
-	consumer.Close()
-	b.consumerMu.Unlock()
-}
-
-func (b *EventBus) handler(
-	ctx context.Context,
-	matcher eh.EventMatcher,
-	handler eh.EventHandler,
-) func(d *clarimq.Delivery) clarimq.Action {
-	return func(msg *clarimq.Delivery) clarimq.Action {
-		event, ctx, err := b.eventCodec.UnmarshalEvent(ctx, msg.Body)
-		if err != nil {
-			b.sendErrToErrChannel(ctx, err, handler, event)
-
-			return clarimq.NackDiscard
-		}
-
-		// Ignore non-matching events.
-		if !matcher.Match(event) {
-			return clarimq.Ack
-		}
-
-		// Handle the event if it did match.
-		if err := handler.HandleEvent(
-			ehtracygo.NewContext(ctx, msg.CorrelationId),
-			event,
-		); err != nil {
-			b.sendErrToErrChannel(ctx, err, handler, event)
-
-			return clarimq.NackDiscard
-		}
-
-		return clarimq.Ack
-	}
-}
-
-func (b *EventBus) returnHandler(rtn clarimq.Return) {
-	event, ctx, err := b.eventCodec.UnmarshalEvent(b.ctx, rtn.Body)
-	if err != nil {
-		b.logger.logDebug("return handler: failed to unmarshal event", "error", err)
-
-		return
-	}
-
-	b.logger.logError("return handler: event could not be published",
-		"eh-namespace", namespace.FromContext(ctx),
-		"eventType", event.EventType(),
-		"exchange", rtn.Exchange,
-		"routingKey", rtn.RoutingKey,
-		"messageId", rtn.MessageId,
-		"correlationId", rtn.CorrelationId,
-	)
-}
-
-func (b *EventBus) sendErrToErrChannel(ctx context.Context, err error, h eh.EventHandler, event eh.Event) {
-	err = fmt.Errorf("could not handle event (%s): %w", h.HandlerType(), err)
-	select {
-	case b.errCh <- &eh.EventBusError{Err: err, Ctx: ctx, Event: event}:
-	default:
-		b.logger.logError("eventhorizon: missed error in RabbitMQ event bus", "error", err)
-	}
-}
-
-func createFilter(topic string, m eh.EventMatcher) []string {
-	switch m := m.(type) {
-	case eh.MatchEvents:
-		s := make([]string, len(m))
-		for i, et := range m {
-			s[i] = fmt.Sprintf(`%s.%s`, topic, et) // Filter event types by key to save space.
-		}
-
-		return s
-	default:
-		return []string{fmt.Sprintf("%s.*", topic)}
-	}
-}
-
-func (b *EventBus) setupConnections() error {
-	const errMessage = "failed to setup eventbus connections: %w"
-
-	var err error
-
-	if b.publishConn, err = b.setupConnection(
-		clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_publish_connection", b.appID)),
-		clarimq.WithConnectionOptionReturnHandler(b.returnHandler),
-		clarimq.WithConnectionOptionMultipleLoggers(b.loggers),
-	); err != nil {
-		return fmt.Errorf(errMessage, err)
-	}
-
-	if b.consumeConn, err = b.setupConnection(
-		clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_consume_connection", b.appID)),
-		clarimq.WithConnectionOptionMultipleLoggers(b.loggers),
-	); err != nil {
-		return fmt.Errorf(errMessage, err)
-	}
-
-	if b.publisher, err = clarimq.NewPublisher(b.publishConn); err != nil {
-		return fmt.Errorf(errMessage, err)
-	}
-
-	return nil
-}
-
-// ErrRecoveryFailed occurs when the recovery failed after a connection loss.
-var ErrRecoveryFailed = errors.New("failed to recover after connection loss")
-
-func (b *EventBus) setupConnection(options ...clarimq.ConnectionOption) (*clarimq.Connection, error) {
-	const errMessage = "failed to setup connection: %w"
-
-	conn, err := clarimq.NewConnection(b.addr, options...)
-	if err != nil {
-		return nil, fmt.Errorf(errMessage, err)
-	}
-
-	go func() {
-		for err := range conn.NotifyAutoRecoveryFail() {
-			if err == nil {
-				return
-			}
-
-			b.errCh <- fmt.Errorf(errMessage, ErrRecoveryFailed)
-		}
-	}()
-
-	return conn, nil
-}
-
-func (b *EventBus) declareConsumer(ctx context.Context, matcher eh.EventMatcher, handler eh.EventHandler) (*clarimq.Consumer, error) {
-	const errMessage = "failed to declare consumer: %w"
-
-	queueName := fmt.Sprintf("%s_%s", b.appID, handler.HandlerType())
-
-	optionFuncs := []clarimq.ConsumeOption{
-		clarimq.WithConsumerOptionConsumerName(fmt.Sprintf("%s_%s", queueName, b.clientID)),
-		clarimq.WithExchangeOptionName(b.exchangeName),
-		clarimq.WithExchangeOptionKind(clarimq.ExchangeTopic),
-		clarimq.WithExchangeOptionDeclare(true),
-		clarimq.WithExchangeOptionDurable(true),
-		clarimq.WithQueueOptionDurable(true),
-	}
-
-	if b.useRetry {
-		optionFuncs = append(optionFuncs, clarimq.WithConsumerOptionDeadLetterRetry(&clarimq.RetryOptions{
-			RetryConn:  b.publishConn,
-			Delays:     b.queueDelays,
-			MaxRetries: b.maxRetries,
-		}))
-	}
-
-	for _, routingKey := range createFilter(b.topic, matcher) {
-		optionFuncs = append(optionFuncs, clarimq.WithConsumerOptionRoutingKey(routingKey))
-	}
-
-	consumer, err := clarimq.NewConsumer(
-		b.consumeConn,
-		queueName,
-		b.handler(ctx, matcher, handler),
-		optionFuncs...,
-	)
-	if err != nil {
-		return nil, fmt.Errorf(errMessage, err)
-	}
-
-	return consumer, nil
 }
