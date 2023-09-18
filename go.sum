@@ -1,5 +1,5 @@
-github.com/Clarilab/clarimq v0.3.1 h1:qMb0I7zDXCGUyhJrjb+RuJI8iXQ8mhTz8Eqw4jZzFm8=
-github.com/Clarilab/clarimq v0.3.1/go.mod h1:9WQEAIGXZdhTdhLP7fc/Pe+h+xQ6ZPI3QM5UhUFrqR8=
+github.com/Clarilab/clarimq v1.0.1 h1:xcOuEhO+ys++Fn0s03DgkRZPyk0HoZk+Mk2nq82ErBE=
+github.com/Clarilab/clarimq v1.0.1/go.mod h1:9WQEAIGXZdhTdhLP7fc/Pe+h+xQ6ZPI3QM5UhUFrqR8=
 github.com/Clarilab/eh-tracygo v1.0.0 h1:2KlaQfPO5ajqBinHK4Hu3vXauTG2q0W9jJ7Aim5pQFw=
 github.com/Clarilab/eh-tracygo v1.0.0/go.mod h1:bC1/XWv6byi0+YzkvuoioeV8vPruyK0jHkFo5gN5+Qc=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
