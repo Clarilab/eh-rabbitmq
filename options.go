@@ -41,3 +41,16 @@ func WithClariMQPublishingCache(publishingCache clarimq.PublishingCache) Option 
 		b.publishingCache = publishingCache
 	}
 }
+
+// WithClariMQConnections sets the connections used for publishing and consuming events.
+func WithClariMQConnections(publishingConn *clarimq.Connection, consumeConn *clarimq.Connection) Option {
+	return func(bus *EventBus) {
+		if publishingConn != nil {
+			bus.publishConn = publishingConn
+		}
+
+		if consumeConn != nil {
+			bus.consumeConn = consumeConn
+		}
+	}
+}
