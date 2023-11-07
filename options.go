@@ -35,6 +35,15 @@ func WithRetry(maxRetries int64, delays []time.Duration) Option {
 	}
 }
 
+// WithMaxRecoveryRetry sets the max count for recovery retries.
+//
+// Default: Infinite.
+func WithMaxRecoveryRetry(maxRetries int64) Option {
+	return func(b *EventBus) {
+		b.maxRecoveryRetries = maxRetries
+	}
+}
+
 // WithClariMQPublishingCache enables caching events that failed to be published.
 func WithClariMQPublishingCache(publishingCache clarimq.PublishingCache) Option {
 	return func(b *EventBus) {

@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	// InfiniteRetries is the value to retry without discarding an event.
+	// InfiniteRetries is the maximum number for recovery or event delivery retries.
 	InfiniteRetries int64 = math.MaxInt64
 
 	aggregateTypeKey string = "aggregate_type"
@@ -43,28 +43,29 @@ const (
 // EventBus is a local event bus that delegates handling of published events
 // to all matching registered handlers, in order of registration.
 type EventBus struct {
-	appID           string
-	exchangeName    string
-	topic           string
-	addr            string
-	clientID        string
-	registered      map[eh.EventHandlerType]struct{}
-	registeredMu    sync.RWMutex
-	errCh           chan error
-	ctx             context.Context //nolint:containedctx // intended use
-	cancel          context.CancelFunc
-	wg              sync.WaitGroup
-	eventCodec      eh.EventCodec
-	publishConn     *clarimq.Connection
-	publisher       *clarimq.Publisher
-	consumeConn     *clarimq.Connection
-	consumerMu      sync.RWMutex
-	useRetry        bool
-	maxRetries      int64
-	queueDelays     []time.Duration
-	logger          *logger
-	loggers         []*slog.Logger
-	publishingCache clarimq.PublishingCache
+	appID              string
+	exchangeName       string
+	topic              string
+	addr               string
+	clientID           string
+	registered         map[eh.EventHandlerType]struct{}
+	registeredMu       sync.RWMutex
+	errCh              chan error
+	ctx                context.Context //nolint:containedctx // intended use
+	cancel             context.CancelFunc
+	wg                 sync.WaitGroup
+	eventCodec         eh.EventCodec
+	publishConn        *clarimq.Connection
+	publisher          *clarimq.Publisher
+	consumeConn        *clarimq.Connection
+	consumerMu         sync.RWMutex
+	useRetry           bool
+	maxRetries         int64
+	maxRecoveryRetries int64
+	queueDelays        []time.Duration
+	logger             *logger
+	loggers            []*slog.Logger
+	publishingCache    clarimq.PublishingCache
 }
 
 // NewEventBus creates an EventBus, with optional settings.
@@ -74,16 +75,17 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 	ctx, cancel := context.WithCancel(context.Background())
 
 	bus := &EventBus{
-		appID:        appID,
-		exchangeName: exchange,
-		addr:         addr,
-		topic:        topic,
-		clientID:     clientID,
-		registered:   map[eh.EventHandlerType]struct{}{},
-		errCh:        make(chan error, errChBuffSize),
-		ctx:          ctx,
-		cancel:       cancel,
-		eventCodec:   &json.EventCodec{},
+		appID:              appID,
+		exchangeName:       exchange,
+		addr:               addr,
+		topic:              topic,
+		clientID:           clientID,
+		registered:         map[eh.EventHandlerType]struct{}{},
+		errCh:              make(chan error, errChBuffSize),
+		ctx:                ctx,
+		cancel:             cancel,
+		eventCodec:         &json.EventCodec{},
+		maxRecoveryRetries: InfiniteRetries,
 	}
 
 	// Apply configuration options.
