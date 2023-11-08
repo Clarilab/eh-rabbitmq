@@ -86,6 +86,7 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 		ctx:                ctx,
 		cancel:             cancel,
 		eventCodec:         &json.EventCodec{},
+		maxRetries:         InfiniteRetries,
 		maxRecoveryRetries: InfiniteRetries,
 		tracer:             tracygo.New(),
 	}

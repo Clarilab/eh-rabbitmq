@@ -27,6 +27,8 @@ func WithLogging(loggers []*slog.Logger) Option {
 
 // WithRetry enables event retries. If maxRetries is bigger than the number of delays provided,
 // it will use the last value until maxRetries has been reached. Use InfiniteRetries to never drop the message.
+//
+// Default maxRetries is Infinite.
 func WithRetry(maxRetries int64, delays []time.Duration) Option {
 	return func(bus *EventBus) {
 		bus.useRetry = true
