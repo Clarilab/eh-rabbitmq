@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/Clarilab/clarimq"
-	ehtracygo "github.com/Clarilab/eh-tracygo"
+	"github.com/Clarilab/tracygo/v2"
 	"github.com/google/uuid"
 	eh "github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/codec/json"
@@ -66,6 +66,7 @@ type EventBus struct {
 	logger             *logger
 	loggers            []*slog.Logger
 	publishingCache    clarimq.PublishingCache
+	tracer             *tracygo.TracyGo
 }
 
 // NewEventBus creates an EventBus, with optional settings.
@@ -86,6 +87,7 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 		cancel:             cancel,
 		eventCodec:         &json.EventCodec{},
 		maxRecoveryRetries: InfiniteRetries,
+		tracer:             tracygo.New(),
 	}
 
 	// Apply configuration options.
@@ -134,7 +136,7 @@ func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
 		clarimq.WithPublishOptionDeliveryMode(clarimq.PersistentDelivery),
 		clarimq.WithPublishOptionExchange(b.exchangeName),
 		clarimq.WithPublishOptionMessageID(uuid.NewString()),
-		clarimq.WithPublishOptionTracing(ehtracygo.FromContext(ctx)),
+		clarimq.WithPublishOptionTracing(b.tracer.CorrelationIDromContext(ctx)),
 		clarimq.WithPublishOptionHeaders(
 			map[string]any{
 				aggregateTypeKey: event.AggregateType().String(),

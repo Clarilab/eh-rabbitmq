@@ -2,6 +2,8 @@ github.com/Clarilab/clarimq v1.1.0 h1:2/gk7QSMXq/DBZLmjNw+TXtWtPiAnShzfTcb5OHpch
 github.com/Clarilab/clarimq v1.1.0/go.mod h1:9WQEAIGXZdhTdhLP7fc/Pe+h+xQ6ZPI3QM5UhUFrqR8=
 github.com/Clarilab/eh-tracygo v1.0.0 h1:2KlaQfPO5ajqBinHK4Hu3vXauTG2q0W9jJ7Aim5pQFw=
 github.com/Clarilab/eh-tracygo v1.0.0/go.mod h1:bC1/XWv6byi0+YzkvuoioeV8vPruyK0jHkFo5gN5+Qc=
+github.com/Clarilab/tracygo/v2 v2.1.0 h1:5QU3NTTboXD9PK0RCvSe7hBnO/vafkX05S2IYe3m44s=
+github.com/Clarilab/tracygo/v2 v2.1.0/go.mod h1:DTUarfWtuAsbaLsXnzlQDS5nkTzXcna7ZvLIqriw5Vk=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
