@@ -28,18 +28,11 @@ func (b *EventBus) setupConnections() error {
 
 	var err error
 
-	if b.publishConn, err = b.setupConnection(
-		clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_publish_connection", b.appID)),
-		clarimq.WithConnectionOptionReturnHandler(b.returnHandler),
-		clarimq.WithConnectionOptionMultipleLoggers(b.loggers),
-	); err != nil {
+	if err = b.setupPublishConnection(); err != nil {
 		return fmt.Errorf(errMessage, err)
 	}
 
-	if b.consumeConn, err = b.setupConnection(
-		clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_consume_connection", b.appID)),
-		clarimq.WithConnectionOptionMultipleLoggers(b.loggers),
-	); err != nil {
+	if err = b.setupConsumeConnection(); err != nil {
 		return fmt.Errorf(errMessage, err)
 	}
 
@@ -52,17 +45,51 @@ func (b *EventBus) setupConnections() error {
 	return nil
 }
 
+func (b *EventBus) setupPublishConnection() (err error) { //nolint:nonamedreturns // intended use
+	const errMessage = "failed to setup publish connection: %w"
+
+	if b.publishConn == nil {
+		if b.publishConn, err = b.setupConnection(
+			clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_publish_connection", b.appID)),
+		); err != nil {
+			return fmt.Errorf(errMessage, err)
+		}
+	}
+
+	if len(b.loggers) > 0 { // in case a user already applied loggers to the connection, but not the event bus.
+		b.publishConn.SetLoggers(b.loggers)
+	}
+
+	b.publishConn.SetReturnHandler(b.returnHandler)
+	b.publishConn.SetMaxRecoveryRetries(int(b.maxRecoveryRetries))
+
+	return err
+}
+
+func (b *EventBus) setupConsumeConnection() (err error) { //nolint:nonamedreturns // intended use
+	const errMessage = "failed to setup consume connection: %w"
+
+	if b.consumeConn == nil {
+		if b.consumeConn, err = b.setupConnection(
+			clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_consume_connection", b.appID)),
+		); err != nil {
+			return fmt.Errorf(errMessage, err)
+		}
+	}
+
+	if len(b.loggers) > 0 { // in case a user already applied loggers to the connection, but not the event bus.
+		b.publishConn.SetLoggers(b.loggers)
+	}
+
+	b.consumeConn.SetMaxRecoveryRetries(int(b.maxRecoveryRetries))
+
+	return err
+}
+
 func (b *EventBus) setupConnection(options ...clarimq.ConnectionOption) (*clarimq.Connection, error) {
 	const errMessage = "failed to setup connection: %w"
 
-	opt := []clarimq.ConnectionOption{
-		clarimq.WithConnectionOptionBackOffFactor(1),
-		clarimq.WithConnectionOptionMaxRecoveryRetries(int(InfiniteRetries)),
-	}
-
-	opt = append(opt, options...)
-
-	conn, err := clarimq.NewConnection(b.addr, opt...)
+	conn, err := clarimq.NewConnection(b.addr, options...)
 	if err != nil {
 		return nil, fmt.Errorf(errMessage, err)
 	}

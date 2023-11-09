@@ -2,9 +2,10 @@ version: "3.4"
 services:
   rabbitmq:
       container_name: rabbitmq
-      image: 'rabbitmq:3.12.2-alpine'
+      image: 'rabbitmq:3.11.9-management'
       ports:
         - "5672:5672"
+        - "15672:15672"
       healthcheck:
         test: rabbitmq-diagnostics -q ping
         interval: 5s

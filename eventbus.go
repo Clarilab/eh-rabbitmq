@@ -24,14 +24,14 @@ import (
 	"time"
 
 	"github.com/Clarilab/clarimq"
-	ehtracygo "github.com/Clarilab/eh-tracygo"
+	"github.com/Clarilab/tracygo/v2"
 	"github.com/google/uuid"
 	eh "github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/codec/json"
 )
 
 const (
-	// InfiniteRetries is the value to retry without discarding an event.
+	// InfiniteRetries is the maximum number for recovery or event delivery retries.
 	InfiniteRetries int64 = math.MaxInt64
 
 	aggregateTypeKey string = "aggregate_type"
@@ -43,28 +43,30 @@ const (
 // EventBus is a local event bus that delegates handling of published events
 // to all matching registered handlers, in order of registration.
 type EventBus struct {
-	appID           string
-	exchangeName    string
-	topic           string
-	addr            string
-	clientID        string
-	registered      map[eh.EventHandlerType]struct{}
-	registeredMu    sync.RWMutex
-	errCh           chan error
-	ctx             context.Context //nolint:containedctx // intended use
-	cancel          context.CancelFunc
-	wg              sync.WaitGroup
-	eventCodec      eh.EventCodec
-	publishConn     *clarimq.Connection
-	publisher       *clarimq.Publisher
-	consumeConn     *clarimq.Connection
-	consumerMu      sync.RWMutex
-	useRetry        bool
-	maxRetries      int64
-	queueDelays     []time.Duration
-	logger          *logger
-	loggers         []*slog.Logger
-	publishingCache clarimq.PublishingCache
+	appID              string
+	exchangeName       string
+	topic              string
+	addr               string
+	clientID           string
+	registered         map[eh.EventHandlerType]struct{}
+	registeredMu       sync.RWMutex
+	errCh              chan error
+	ctx                context.Context //nolint:containedctx // intended use
+	cancel             context.CancelFunc
+	wg                 sync.WaitGroup
+	eventCodec         eh.EventCodec
+	publishConn        *clarimq.Connection
+	publisher          *clarimq.Publisher
+	consumeConn        *clarimq.Connection
+	consumerMu         sync.RWMutex
+	useRetry           bool
+	maxRetries         int64
+	maxRecoveryRetries int64
+	queueDelays        []time.Duration
+	logger             *logger
+	loggers            []*slog.Logger
+	publishingCache    clarimq.PublishingCache
+	tracer             *tracygo.TracyGo
 }
 
 // NewEventBus creates an EventBus, with optional settings.
@@ -74,16 +76,19 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 	ctx, cancel := context.WithCancel(context.Background())
 
 	bus := &EventBus{
-		appID:        appID,
-		exchangeName: exchange,
-		addr:         addr,
-		topic:        topic,
-		clientID:     clientID,
-		registered:   map[eh.EventHandlerType]struct{}{},
-		errCh:        make(chan error, errChBuffSize),
-		ctx:          ctx,
-		cancel:       cancel,
-		eventCodec:   &json.EventCodec{},
+		appID:              appID,
+		exchangeName:       exchange,
+		addr:               addr,
+		topic:              topic,
+		clientID:           clientID,
+		registered:         map[eh.EventHandlerType]struct{}{},
+		errCh:              make(chan error, errChBuffSize),
+		ctx:                ctx,
+		cancel:             cancel,
+		eventCodec:         &json.EventCodec{},
+		maxRetries:         InfiniteRetries,
+		maxRecoveryRetries: InfiniteRetries,
+		tracer:             tracygo.New(),
 	}
 
 	// Apply configuration options.
@@ -132,7 +137,7 @@ func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
 		clarimq.WithPublishOptionDeliveryMode(clarimq.PersistentDelivery),
 		clarimq.WithPublishOptionExchange(b.exchangeName),
 		clarimq.WithPublishOptionMessageID(uuid.NewString()),
-		clarimq.WithPublishOptionTracing(ehtracygo.FromContext(ctx)),
+		clarimq.WithPublishOptionTracing(b.tracer.CorrelationIDromContext(ctx)),
 		clarimq.WithPublishOptionHeaders(
 			map[string]any{
 				aggregateTypeKey: event.AggregateType().String(),
