@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Clarilab/clarimq"
+	eh "github.com/looplab/eventhorizon"
 )
 
 // ErrCouldNotBeRouted is returned when a mandatory message could not be routed.
@@ -35,4 +36,11 @@ func (e *RecoveryFailedError) Error() string {
 	}
 
 	return str
+}
+
+// EventBusError is an async error containing the error returned from a handler and the event that it happened on.
+// Its a wrapper around the eventhorizon.EventBusError with extra information about the handler.
+type EventBusError struct {
+	eh.EventBusError
+	HandlerType eh.EventHandlerType
 }
