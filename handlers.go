@@ -81,7 +81,7 @@ func (b *EventBus) returnHandler(rtn clarimq.Return) {
 func (b *EventBus) sendErrToErrChannel(ctx context.Context, err error, h eh.EventHandler, event eh.Event) {
 	err = fmt.Errorf("could not handle event (%s): %w", h.HandlerType(), err)
 	select {
-	case b.errCh <- &eh.EventBusError{Err: err, Ctx: ctx, Event: event}:
+	case b.errCh <- &EventBusError{eh.EventBusError{Err: err, Ctx: ctx, Event: event}, h.HandlerType()}:
 	default:
 		b.logger.logError("eventhorizon: missed error in RabbitMQ event bus", "error", err)
 	}
