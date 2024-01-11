@@ -1,7 +1,6 @@
 package rabbitmq
 
 import (
-	"log/slog"
 	"time"
 
 	"github.com/Clarilab/clarimq"
@@ -19,7 +18,7 @@ func WithEventCodec(codec eh.EventCodec) Option {
 }
 
 // WithLogging enables logging to the given loggers.
-func WithLogging(loggers []*slog.Logger) Option {
+func WithLogging(loggers ...clarimq.Logger) Option {
 	return func(b *EventBus) {
 		b.loggers = loggers
 	}

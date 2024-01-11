@@ -1,14 +1,14 @@
 package rabbitmq
 
 import (
-	"log/slog"
+	"github.com/Clarilab/clarimq"
 )
 
 type logger struct {
-	loggers []*slog.Logger
+	loggers []clarimq.Logger
 }
 
-func newLogger(loggers []*slog.Logger) *logger {
+func newLogger(loggers []clarimq.Logger) *logger {
 	return &logger{loggers}
 }
 
