@@ -3,7 +3,7 @@ module github.com/Clarilab/eh-rabbitmq
 go 1.21
 
 require (
-	github.com/Clarilab/clarimq v1.1.0
+	github.com/Clarilab/clarimq v1.2.0
 	github.com/Clarilab/eh-tracygo v1.0.0
 	github.com/Clarilab/tracygo/v2 v2.1.0
 	github.com/google/uuid v1.4.0

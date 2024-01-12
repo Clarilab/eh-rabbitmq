@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"math"
 	"sync"
 	"time"
@@ -64,7 +63,7 @@ type EventBus struct {
 	maxRecoveryRetries int64
 	queueDelays        []time.Duration
 	logger             *logger
-	loggers            []*slog.Logger
+	loggers            []clarimq.Logger
 	publishingCache    clarimq.PublishingCache
 	tracer             *tracygo.TracyGo
 }

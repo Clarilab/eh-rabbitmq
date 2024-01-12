@@ -22,7 +22,8 @@ func (e *AMQPError) Error() string {
 
 // ErrRecoveryFailed occurs when the recovery failed after a connection loss.
 type RecoveryFailedError struct {
-	err error
+	err            error
+	connectionName string
 }
 
 // Error implements the Error method of the error interface.
@@ -36,6 +37,11 @@ func (e *RecoveryFailedError) Error() string {
 	}
 
 	return str
+}
+
+// ConnectionName returns the name of the connection that failed to recover.
+func (e *RecoveryFailedError) ConnectionName() string {
+	return e.connectionName
 }
 
 // EventBusError is an async error containing the error returned from a handler and the event that it happened on.

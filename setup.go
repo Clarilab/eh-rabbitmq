@@ -49,15 +49,17 @@ func (b *EventBus) setupPublishConnection() (err error) { //nolint:nonamedreturn
 	const errMessage = "failed to setup publish connection: %w"
 
 	if b.publishConn == nil {
-		if b.publishConn, err = b.setupConnection(
+		if b.publishConn, err = b.establishConnection(
 			clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_publish_connection", b.appID)),
 		); err != nil {
 			return fmt.Errorf(errMessage, err)
 		}
 	}
 
+	b.watchConnectionErrors(b.publishConn)
+
 	if len(b.loggers) > 0 { // in case a user already applied loggers to the connection, but not the event bus.
-		b.publishConn.SetLoggers(b.loggers)
+		b.publishConn.SetLoggers(b.loggers...)
 	}
 
 	b.publishConn.SetReturnHandler(b.returnHandler)
@@ -70,15 +72,17 @@ func (b *EventBus) setupConsumeConnection() (err error) { //nolint:nonamedreturn
 	const errMessage = "failed to setup consume connection: %w"
 
 	if b.consumeConn == nil {
-		if b.consumeConn, err = b.setupConnection(
+		if b.consumeConn, err = b.establishConnection(
 			clarimq.WithConnectionOptionConnectionName(fmt.Sprintf("%s_consume_connection", b.appID)),
 		); err != nil {
 			return fmt.Errorf(errMessage, err)
 		}
 	}
 
+	b.watchConnectionErrors(b.consumeConn)
+
 	if len(b.loggers) > 0 { // in case a user already applied loggers to the connection, but not the event bus.
-		b.publishConn.SetLoggers(b.loggers)
+		b.publishConn.SetLoggers(b.loggers...)
 	}
 
 	b.consumeConn.SetMaxRecoveryRetries(int(b.maxRecoveryRetries))
@@ -86,15 +90,13 @@ func (b *EventBus) setupConsumeConnection() (err error) { //nolint:nonamedreturn
 	return err
 }
 
-func (b *EventBus) setupConnection(options ...clarimq.ConnectionOption) (*clarimq.Connection, error) {
-	const errMessage = "failed to setup connection: %w"
+func (b *EventBus) establishConnection(options ...clarimq.ConnectionOption) (*clarimq.Connection, error) {
+	const errMessage = "failed to establish connection: %w"
 
 	conn, err := clarimq.NewConnection(b.addr, options...)
 	if err != nil {
 		return nil, fmt.Errorf(errMessage, err)
 	}
-
-	b.watchConnectionErrors(conn)
 
 	return conn, nil
 }
@@ -116,7 +118,7 @@ func (b *EventBus) watchConnectionErrors(conn *clarimq.Connection) {
 				b.errCh <- &err
 
 			case errors.As(err, &recoveryFailed):
-				b.errCh <- &RecoveryFailedError{err}
+				b.errCh <- &RecoveryFailedError{err, recoveryFailed.ConnectionName}
 
 			default:
 				b.errCh <- err
