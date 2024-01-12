@@ -6,7 +6,7 @@ require (
 	github.com/Clarilab/clarimq v1.2.0
 	github.com/Clarilab/eh-tracygo v1.0.0
 	github.com/Clarilab/tracygo/v2 v2.1.0
-	github.com/google/uuid v1.4.0
+	github.com/google/uuid v1.5.0
 	github.com/looplab/eventhorizon v0.16.0
 )
 
