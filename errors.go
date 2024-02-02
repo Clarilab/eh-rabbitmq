@@ -14,6 +14,9 @@ var ErrCouldNotBeRouted = errors.New("message could not be routed")
 // ErrFailedToPublishChannelClosed occurs when the channel accessed but is closed.
 var ErrFailedToPublishChannelClosed = errors.New("amqp channel is closed")
 
+// ErrErrHandlerNotRegistered is returned when calling RemoveHandler with a handler that is not registered.
+var ErrHandlerNotRegistered = errors.New("handler not registered")
+
 type AMQPError clarimq.AMQPError
 
 func (e *AMQPError) Error() string {

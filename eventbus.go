@@ -33,6 +33,7 @@ const (
 	// InfiniteRetries is the maximum number for recovery or event delivery retries.
 	InfiniteRetries int64 = math.MaxInt64
 
+	handlerType      string = "eventbus"
 	aggregateTypeKey string = "aggregate_type"
 	eventTypeKey     string = "event_type"
 
@@ -47,7 +48,7 @@ type EventBus struct {
 	topic              string
 	addr               string
 	clientID           string
-	registered         map[eh.EventHandlerType]struct{}
+	registered         map[eh.EventHandlerType]*clarimq.Consumer
 	registeredMu       sync.RWMutex
 	errCh              chan error
 	ctx                context.Context //nolint:containedctx // intended use
@@ -80,7 +81,7 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 		addr:               addr,
 		topic:              topic,
 		clientID:           clientID,
-		registered:         map[eh.EventHandlerType]struct{}{},
+		registered:         make(map[eh.EventHandlerType]*clarimq.Consumer),
 		errCh:              make(chan error, errChBuffSize),
 		ctx:                ctx,
 		cancel:             cancel,
@@ -110,7 +111,7 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 
 // HandlerType implements the HandlerType method of the eventhorizon.EventHandler interface.
 func (*EventBus) HandlerType() eh.EventHandlerType {
-	return "eventbus"
+	return eh.EventHandlerType(handlerType)
 }
 
 // HandleEvent implements the HandleEvent method of the eventhorizon.EventHandler interface.
@@ -176,9 +177,6 @@ func (b *EventBus) AddHandler(ctx context.Context, matcher eh.EventMatcher, hand
 		return eh.ErrHandlerAlreadyAdded
 	}
 
-	// Register handler.
-	b.registered[handler.HandlerType()] = struct{}{}
-
 	consumer, err := b.declareConsumer(ctx, matcher, handler)
 	if err != nil {
 		return fmt.Errorf(errMessage, err)
@@ -188,7 +186,51 @@ func (b *EventBus) AddHandler(ctx context.Context, matcher eh.EventMatcher, hand
 	b.wg.Add(1)
 	go b.handle(consumer)
 
+	// Register handler.
+	b.registered[handler.HandlerType()] = consumer
+
 	return nil
+}
+
+// RemoveHandler removes a handler from the event bus by type.
+func (b *EventBus) RemoveHandler(handlerType eh.EventHandlerType) error {
+	const errMessage = "failed to remove handler: %w"
+
+	// Check handler existence.
+	b.registeredMu.RLock()
+	if _, ok := b.registered[handlerType]; !ok {
+		b.registeredMu.RUnlock()
+
+		return fmt.Errorf(errMessage, ErrHandlerNotRegistered)
+	}
+
+	b.registeredMu.RUnlock()
+
+	b.registeredMu.Lock()
+	defer b.registeredMu.Unlock()
+
+	if err := b.registered[handlerType].Close(); err != nil {
+		return fmt.Errorf(errMessage, err)
+	}
+
+	// Unregister handler.
+	delete(b.registered, handlerType)
+
+	return nil
+}
+
+// RegisteredHandlers returns a slice of all registered handler types.
+func (b *EventBus) RegisteredHandlers() []eh.EventHandlerType {
+	b.registeredMu.RLock()
+	defer b.registeredMu.RUnlock()
+
+	handlerTypes := make([]eh.EventHandlerType, 0, len(b.registered))
+
+	for handlerType := range b.registered {
+		handlerTypes = append(handlerTypes, handlerType)
+	}
+
+	return handlerTypes
 }
 
 // Close implements the Close method of the eventhorizon.EventBus interface.

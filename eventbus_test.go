@@ -16,9 +16,11 @@ package rabbitmq_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -26,7 +28,9 @@ import (
 
 	"github.com/Clarilab/clarimq"
 	rabbitmq "github.com/Clarilab/eh-rabbitmq"
+	"github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/eventbus"
+	"github.com/looplab/eventhorizon/mocks"
 	"github.com/looplab/eventhorizon/uuid"
 )
 
@@ -43,6 +47,55 @@ func Test_Integration_AddHandler(t *testing.T) { //nolint:paralleltest // must n
 	t.Cleanup(func() { bus.Close() })
 
 	eventbus.TestAddHandler(t, bus)
+}
+
+func Test_Integration_RemoveHandler(t *testing.T) { //nolint:paralleltest // must not run in parallel
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	bus, _, err := newTestEventBus("app-id")
+	if err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	t.Cleanup(func() { bus.Close() })
+
+	t.Run("happy path", func(t *testing.T) { //nolint:paralleltest // must not run in parallel
+		handler := mocks.NewEventHandler("handler-1")
+		queueName := fmt.Sprintf("%s_%s", "app-id", handler.HandlerType())
+
+		if err := bus.AddHandler(context.Background(), eventhorizon.MatchAll{}, handler); err != nil {
+			t.Fatal("there should be no error:", err)
+		}
+
+		if len(bus.RegisteredHandlers()) != 1 {
+			t.Fatal("there should be 1 registered handler")
+		}
+
+		if expectQueueConsumerCount(t, queueName, 1); err != nil {
+			t.Fatal("there should be 1 consumer on the queue")
+		}
+
+		if err := bus.RemoveHandler(eventhorizon.EventHandlerType("handler-1")); err != nil {
+			t.Fatal("there should be no error:", err)
+		}
+
+		if len(bus.RegisteredHandlers()) != 0 {
+			t.Fatal("there should be 0 registered handler")
+		}
+
+		if expectQueueConsumerCount(t, queueName, 0); err != nil {
+			t.Fatal("there should be 0 consumer on the queue")
+		}
+	})
+
+	t.Run("handler not registered", func(t *testing.T) { //nolint:paralleltest // must not run in parallel
+		err := bus.RemoveHandler(eventhorizon.EventHandlerType("handler-1"))
+		if !errors.Is(err, rabbitmq.ErrHandlerNotRegistered) {
+			t.Fatal("error should be: 'handler not registered'", err)
+		}
+	})
 }
 
 func Test_Integration_EventBus(t *testing.T) { //nolint:paralleltest // must not run in parallel
@@ -108,10 +161,8 @@ func Test_Integration_ExternalConnections(t *testing.T) { //nolint:paralleltest 
 
 		time.Sleep(waitTime) // wait for connections to be fully established
 
-		connCount := getConnectionCount(t)
-
-		if connCount != 6 { // expecting 6 connections: 1 publish and 1 consume connections per event bus
-			t.Fatal("there should be 6 connections, got:", connCount)
+		if err := expectConnectionCount(t, 6); err != nil {
+			t.Fatal("there should be 6 connections")
 		}
 	})
 
@@ -144,10 +195,8 @@ func Test_Integration_ExternalConnections(t *testing.T) { //nolint:paralleltest 
 
 		time.Sleep(waitTime) // wait for connections to be fully established
 
-		connCount := getConnectionCount(t)
-
-		if connCount != 2 { // expecting 2 connections
-			t.Fatal("there should be 2 connections, got:", connCount)
+		if err := expectConnectionCount(t, 2); err != nil {
+			t.Fatal("there should be 2 connections")
 		}
 	})
 }
@@ -184,7 +233,7 @@ func newTestEventBus(appID string) (*rabbitmq.EventBus, string, error) {
 	return bus, appID, nil
 }
 
-func getConnectionCount(t *testing.T) int {
+func expectConnectionCount(t *testing.T, expected int) error {
 	t.Helper()
 
 	type rqmAPIResponse []struct{}
@@ -196,9 +245,76 @@ func getConnectionCount(t *testing.T) int {
 
 	request.SetBasicAuth("guest", "guest")
 
-	restClient := http.Client{}
+	var apiResp rqmAPIResponse
 
-	resp, err := restClient.Do(request)
+	do := func() bool {
+		return len(apiResp) == expected
+	}
+
+	return compare(t, request, &apiResp, do)
+}
+
+func expectQueueConsumerCount(t *testing.T, queueName string, expected int) error {
+	t.Helper()
+
+	type queue struct {
+		Name      string `json:"name"`
+		Consumers int    `json:"consumers"`
+	}
+
+	type rqmAPIResponse []queue
+
+	request, err := http.NewRequest(http.MethodGet, "http://localhost:15672/api/queues", nil)
+	if err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	request.SetBasicAuth("guest", "guest")
+
+	var apiResp rqmAPIResponse
+
+	do := func() bool {
+		for i := range apiResp {
+			return apiResp[i].Name == queueName && apiResp[i].Consumers == expected
+		}
+
+		return false
+	}
+
+	return compare(t, request, &apiResp, do)
+}
+
+func compare(t *testing.T, request *http.Request, result any, compareFn func() bool) error {
+	t.Helper()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	retries := 0
+
+	restClient := new(http.Client)
+
+	for range ticker.C {
+		retries++
+
+		pollRMQ(t, restClient, request, &result)
+
+		if compareFn() {
+			return nil
+		}
+
+		if retries >= 10 {
+			return errors.New("failed to compare after retry limit exceeded") //nolint:goerr113 // test code
+		}
+	}
+
+	return nil
+}
+
+func pollRMQ(t *testing.T, client *http.Client, request *http.Request, result any) {
+	t.Helper()
+
+	resp, err := client.Do(request)
 	if err != nil {
 		t.Fatal("there should be no error:", err)
 	}
@@ -214,12 +330,8 @@ func getConnectionCount(t *testing.T) int {
 		t.Fatal("there should be no error:", err)
 	}
 
-	var apiResp rqmAPIResponse
-
-	err = json.Unmarshal(buff.Bytes(), &apiResp)
+	err = json.Unmarshal(buff.Bytes(), &result)
 	if err != nil {
 		t.Fatal("there should be no error:", err)
 	}
-
-	return len(apiResp)
 }
