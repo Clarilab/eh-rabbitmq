@@ -24,6 +24,7 @@ linters:
     - sqlclosecheck # disabled because of generics
     - tagliatelle # requires ID instead of Id in jsonTags, which is annoying for our old structs
     - varcheck  # deprecated
+    - perfsprint
 linters-settings:
   cyclop:
     max-complexity: 20
