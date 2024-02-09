@@ -169,11 +169,13 @@ func (b *EventBus) AddHandler(ctx context.Context, matcher eh.EventMatcher, hand
 		return eh.ErrMissingHandler
 	}
 
+	handlerType := handler.HandlerType()
+
 	// Check handler existence.
 	b.registeredMu.Lock()
 	defer b.registeredMu.Unlock()
 
-	if _, ok := b.registered[handler.HandlerType()]; ok {
+	if _, ok := b.registered[handlerType]; ok {
 		return eh.ErrHandlerAlreadyAdded
 	}
 
@@ -184,10 +186,10 @@ func (b *EventBus) AddHandler(ctx context.Context, matcher eh.EventMatcher, hand
 
 	// Handle until context is cancelled.
 	b.wg.Add(1)
-	go b.handle(consumer)
+	go b.handleCancel(handlerType)
 
 	// Register handler.
-	b.registered[handler.HandlerType()] = consumer
+	b.registered[handlerType] = consumer
 
 	return nil
 }

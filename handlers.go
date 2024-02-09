@@ -13,17 +13,24 @@ const (
 	retryCountHeader = "x-retry-count"
 )
 
-// Handles all events coming in on the channel.
-func (b *EventBus) handle(
-	consumer *clarimq.Consumer,
+func (b *EventBus) handleCancel(
+	handlerType eh.EventHandlerType,
 ) {
 	defer b.wg.Done()
 
 	<-b.ctx.Done()
 
-	b.consumerMu.Lock()
-	consumer.Close()
-	b.consumerMu.Unlock()
+	b.registeredMu.RLock()
+	defer b.registeredMu.RUnlock()
+
+	if consumer, ok := b.registered[handlerType]; ok {
+		b.consumerMu.Lock()
+		defer b.consumerMu.Unlock()
+
+		if err := consumer.Close(); err != nil {
+			b.logger.logInfo(fmt.Sprintf("failed to close consumer for handler: %s", handlerType.String()))
+		}
+	}
 }
 
 func (b *EventBus) handler(
