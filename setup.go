@@ -141,6 +141,10 @@ func (b *EventBus) declareConsumer(ctx context.Context, matcher eh.EventMatcher,
 		clarimq.WithQueueOptionDurable(true),
 	}
 
+	if b.consumerQuantity != 0 {
+		optionFuncs = append(optionFuncs, clarimq.WithConsumerOptionHandlerQuantity(b.consumerQuantity))
+	}
+
 	if b.useRetry {
 		optionFuncs = append(optionFuncs, clarimq.WithConsumerOptionDeadLetterRetry(&clarimq.RetryOptions{
 			RetryConn:  b.publishConn,
