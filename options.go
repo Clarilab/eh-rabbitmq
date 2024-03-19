@@ -64,3 +64,10 @@ func WithClariMQConnections(publishingConn *clarimq.Connection, consumeConn *cla
 		}
 	}
 }
+
+// WithConsumerQuantity sets the number of concurrent consumers.
+func WithConsumerQuantity(concurrency int) Option {
+	return func(b *EventBus) {
+		b.consumerQuantity = concurrency
+	}
+}

@@ -62,6 +62,7 @@ type EventBus struct {
 	useRetry           bool
 	maxRetries         int64
 	maxRecoveryRetries int64
+	consumerQuantity   int
 	queueDelays        []time.Duration
 	logger             *logger
 	loggers            []clarimq.Logger
