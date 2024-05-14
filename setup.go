@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/Clarilab/clarimq"
-	eh "github.com/looplab/eventhorizon"
+	eh "github.com/Clarilab/eventhorizon"
 )
 
 func createFilter(topic string, m eh.EventMatcher) []string {

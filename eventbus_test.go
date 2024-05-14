@@ -28,10 +28,10 @@ import (
 
 	"github.com/Clarilab/clarimq"
 	rabbitmq "github.com/Clarilab/eh-rabbitmq"
-	"github.com/looplab/eventhorizon"
-	"github.com/looplab/eventhorizon/eventbus"
-	"github.com/looplab/eventhorizon/mocks"
-	"github.com/looplab/eventhorizon/uuid"
+	"github.com/Clarilab/eventhorizon"
+	"github.com/Clarilab/eventhorizon/eventbus"
+	"github.com/Clarilab/eventhorizon/mocks"
+	"github.com/Clarilab/eventhorizon/uuid"
 )
 
 func Test_Integration_AddHandler(t *testing.T) { //nolint:paralleltest // must not run in parallel
