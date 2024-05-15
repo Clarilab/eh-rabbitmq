@@ -5,8 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Clarilab/clarimq"
-	ehtracygo "github.com/Clarilab/eh-tracygo"
-	eh "github.com/looplab/eventhorizon"
+	eh "github.com/Clarilab/eventhorizon"
 )
 
 const (
@@ -62,7 +61,7 @@ func (b *EventBus) handler(
 
 		// Handle the event if it did match.
 		if err := handler.HandleEvent(
-			ehtracygo.NewContext(ctx, msg.CorrelationId),
+			b.tracer.NewContextWithCorrelationID(ctx, msg.CorrelationId),
 			event,
 		); err != nil {
 			b.sendErrToErrChannel(ctx, err, handler, event)

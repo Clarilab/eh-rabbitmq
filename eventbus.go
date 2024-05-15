@@ -23,10 +23,10 @@ import (
 	"time"
 
 	"github.com/Clarilab/clarimq"
+	eh "github.com/Clarilab/eventhorizon"
+	"github.com/Clarilab/eventhorizon/codec/json"
 	"github.com/Clarilab/tracygo/v2"
 	"github.com/google/uuid"
-	eh "github.com/looplab/eventhorizon"
-	"github.com/looplab/eventhorizon/codec/json"
 )
 
 const (
