@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/Clarilab/clarimq v1.3.1
-	github.com/Clarilab/eventhorizon v0.18.0
+	github.com/Clarilab/eventhorizon v0.19.0
 	github.com/Clarilab/tracygo/v2 v2.1.0
 	github.com/google/uuid v1.6.0
 )
