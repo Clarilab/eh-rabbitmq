@@ -252,7 +252,7 @@ func (b *EventBus) Close() error {
 		return fmt.Errorf(errMessage, err)
 	}
 
-	b.logger.logInfo("eventbus gracefully closed")
+	b.logger.logInfo(context.Background(), "eventbus gracefully closed")
 
 	return nil
 }

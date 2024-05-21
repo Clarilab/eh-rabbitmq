@@ -27,7 +27,7 @@ func (b *EventBus) handleCancel(
 		defer b.consumerMu.Unlock()
 
 		if err := consumer.Close(); err != nil {
-			b.logger.logInfo(fmt.Sprintf("failed to close consumer for handler: %s", handlerType.String()))
+			b.logger.logWarn(context.Background(), "failed to close consumer for handler: "+handlerType.String())
 		}
 	}
 }
@@ -76,7 +76,7 @@ func (b *EventBus) handler(
 func (b *EventBus) returnHandler(rtn clarimq.Return) {
 	event, ctx, err := b.eventCodec.UnmarshalEvent(b.ctx, rtn.Body)
 	if err != nil {
-		b.logger.logDebug("return handler: failed to unmarshal event", "error", err)
+		b.logger.logDebug(context.Background(), "return handler: failed to unmarshal event", "error", err)
 
 		return
 	}
@@ -89,6 +89,6 @@ func (b *EventBus) sendErrToErrChannel(ctx context.Context, err error, h eh.Even
 	select {
 	case b.errCh <- &EventBusError{eh.EventBusError{Err: err, Ctx: ctx, Event: event}, h.HandlerType()}:
 	default:
-		b.logger.logError("eventhorizon: missed error in RabbitMQ event bus", "error", err)
+		b.logger.logError(context.Background(), "eventhorizon: missed error in RabbitMQ event bus", err)
 	}
 }
