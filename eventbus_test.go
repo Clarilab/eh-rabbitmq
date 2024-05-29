@@ -23,6 +23,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,6 +33,7 @@ import (
 	"github.com/Clarilab/eventhorizon"
 	"github.com/Clarilab/eventhorizon/eventbus"
 	"github.com/Clarilab/eventhorizon/mocks"
+	"github.com/Clarilab/eventhorizon/namespace"
 	"github.com/Clarilab/eventhorizon/uuid"
 )
 
@@ -214,15 +217,89 @@ func Benchmark_EventBus(b *testing.B) {
 	eventbus.Benchmark(b, bus)
 }
 
+func Test_Integration_MaxRetriesExceededHandler(t *testing.T) { //nolint:paralleltest // must not run in parallel
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+
+	// the max-retries-exceeded-handler
+	handler := rabbitmq.MaxRetriesExceededHandler(func(ctx context.Context, event eventhorizon.Event, errorMessage string) error {
+		ns := namespace.FromContext(ctx)
+
+		if !strings.Contains(errorMessage, errTestError.Error()) {
+			t.Fatal("error message should contain 'error-from-mock-event-handler'")
+		}
+
+		// assert namespace
+		if ns != "test-namespace" {
+			t.Fatal("namespace should be 'test-namespace'")
+		}
+
+		data, ok := event.Data().(*mocks.EventData)
+		if !ok {
+			t.Fatal("data should be of type mocks.EventData")
+		}
+
+		// assert event data
+		if data.Content != "event-content" {
+			t.Fatal("content should be 'event-content'")
+		}
+
+		// call done to finish test
+		wg.Done()
+
+		return nil
+	})
+
+	// create event bus with retry options
+	bus, err := rabbitmq.NewEventBus("amqp://guest:guest@localhost:5672/", createAppID(), uuid.New().String(), "eh-rabbitmq-test", "rabbit",
+		rabbitmq.WithRetry(2, []time.Duration{time.Second}, handler),
+	)
+	if err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	t.Cleanup(func() { bus.Close() })
+
+	eventHandler := new(mockErrorEventHandler)
+
+	// add mock event handler that always returns an error
+	if err := bus.AddHandler(context.Background(), eventhorizon.MatchAll{}, eventHandler); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	// publish test event
+	if err := bus.PublishEvent(
+		namespace.NewContext(context.Background(), "test-namespace"),
+		eventhorizon.NewEvent(
+			mocks.EventType,
+			mocks.EventData{Content: "event-content"},
+			time.Now(),
+		)); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	// wait for max-retries-exceeded-handler to be called
+	wg.Wait()
+}
+
+type mockErrorEventHandler struct{}
+
+func (*mockErrorEventHandler) HandlerType() eventhorizon.EventHandlerType {
+	return eventhorizon.EventHandlerType("mock-event-handler")
+}
+
+var errTestError = errors.New("error-from-mock-event-handler")
+
+func (*mockErrorEventHandler) HandleEvent(_ context.Context, _ eventhorizon.Event) error {
+	err := fmt.Errorf("failed to handle event: %w", errTestError)
+
+	return err
+}
+
 func newTestEventBus(appID string) (*rabbitmq.EventBus, string, error) {
 	// Get a random app ID.
 	if appID == "" {
-		bts := make([]byte, 8)
-		if _, err := rand.Read(bts); err != nil {
-			return nil, "", fmt.Errorf("could not randomize app ID: %w", err)
-		}
-
-		appID = "app-" + hex.EncodeToString(bts)
+		appID = createAppID()
 	}
 
 	bus, err := rabbitmq.NewEventBus("amqp://guest:guest@localhost:5672/", appID, uuid.New().String(), "eh-rabbitmq-test", "rabbit")
@@ -231,6 +308,13 @@ func newTestEventBus(appID string) (*rabbitmq.EventBus, string, error) {
 	}
 
 	return bus, appID, nil
+}
+
+func createAppID() string {
+	bts := make([]byte, 8)
+	_, _ = rand.Read(bts)
+
+	return "app-" + hex.EncodeToString(bts)
 }
 
 func expectConnectionCount(t *testing.T, expected int) error {
