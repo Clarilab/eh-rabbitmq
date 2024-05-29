@@ -3,7 +3,7 @@ module github.com/Clarilab/eh-rabbitmq
 go 1.21
 
 require (
-	github.com/Clarilab/clarimq v1.4.0
+	github.com/Clarilab/clarimq v1.5.0
 	github.com/Clarilab/eventhorizon v0.19.0
 	github.com/Clarilab/tracygo/v2 v2.1.0
 	github.com/google/uuid v1.6.0
@@ -16,7 +16,7 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/rabbitmq/amqp091-go v1.9.0 // indirect
+	github.com/rabbitmq/amqp091-go v1.10.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.0.2 // indirect

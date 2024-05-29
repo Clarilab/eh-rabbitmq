@@ -147,9 +147,10 @@ func (b *EventBus) declareConsumer(ctx context.Context, matcher eh.EventMatcher,
 
 	if b.useRetry {
 		optionFuncs = append(optionFuncs, clarimq.WithConsumerOptionDeadLetterRetry(&clarimq.RetryOptions{
-			RetryConn:  b.publishConn,
-			Delays:     b.queueDelays,
-			MaxRetries: b.maxRetries,
+			RetryConn:                 b.publishConn,
+			Delays:                    b.queueDelays,
+			MaxRetries:                b.maxRetries,
+			MaxRetriesExceededHandler: b.maxRetriesExceededHandlerFn,
 		}))
 	}
 
@@ -168,4 +169,27 @@ func (b *EventBus) declareConsumer(ctx context.Context, matcher eh.EventMatcher,
 	}
 
 	return consumer, nil
+}
+
+func (b *EventBus) maxRetriesExceededHandlerFn(msg *clarimq.Delivery) error {
+	const (
+		errMessage          = "failed to handle max retries exceeded: %w"
+		defaultErrorMessage = "unknown error"
+	)
+
+	if b.maxRetriesExceededHandler != nil {
+		event, ctx, err := b.eventCodec.UnmarshalEvent(context.Background(), msg.Body)
+		if err != nil {
+			return fmt.Errorf(errMessage, err)
+		}
+
+		errorMessage, ok := msg.Headers[headerErrorMessage].(string)
+		if !ok {
+			errorMessage = defaultErrorMessage
+		}
+
+		return b.maxRetriesExceededHandler(ctx, event, errorMessage)
+	}
+
+	return nil
 }
