@@ -12,6 +12,9 @@ const (
 	retryCountHeader = "x-retry-count"
 )
 
+// MaxRetriesExceededHandler is a function that is called when the maximum number of retries has been reached.
+type MaxRetriesExceededHandler func(ctx context.Context, event eh.Event, errorMessage string) error
+
 func (b *EventBus) handleCancel(
 	handlerType eh.EventHandlerType,
 ) {
@@ -51,12 +54,12 @@ func (b *EventBus) handler(
 		}
 
 		if b.useRetry {
-			retryCount, ok := msg.Headers[retryCountHeader].(int32)
+			retryCount, ok := msg.Headers[retryCountHeader].(int64)
 			if !ok {
 				retryCount = 0
 			}
 
-			ctx = NewContextWithNumRetries(ctx, int64(retryCount))
+			ctx = NewContextWithNumRetries(ctx, retryCount)
 		}
 
 		// Handle the event if it did match.
@@ -65,6 +68,8 @@ func (b *EventBus) handler(
 			event,
 		); err != nil {
 			b.sendErrToErrChannel(ctx, err, handler, event)
+
+			msg.Headers[headerErrorMessage] = err.Error()
 
 			return clarimq.NackDiscard
 		}

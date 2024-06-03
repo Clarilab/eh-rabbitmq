@@ -43,31 +43,32 @@ const (
 // EventBus is a local event bus that delegates handling of published events
 // to all matching registered handlers, in order of registration.
 type EventBus struct {
-	appID              string
-	exchangeName       string
-	topic              string
-	addr               string
-	clientID           string
-	registered         map[eh.EventHandlerType]*clarimq.Consumer
-	registeredMu       sync.RWMutex
-	errCh              chan error
-	ctx                context.Context //nolint:containedctx // intended use
-	cancel             context.CancelFunc
-	wg                 sync.WaitGroup
-	eventCodec         eh.EventCodec
-	publishConn        *clarimq.Connection
-	publisher          *clarimq.Publisher
-	consumeConn        *clarimq.Connection
-	consumerMu         sync.RWMutex
-	useRetry           bool
-	maxRetries         int64
-	maxRecoveryRetries int64
-	consumerQuantity   int
-	queueDelays        []time.Duration
-	logger             *logger
-	loggers            []clarimq.Logger
-	publishingCache    clarimq.PublishingCache
-	tracer             *tracygo.TracyGo
+	appID                     string
+	exchangeName              string
+	topic                     string
+	addr                      string
+	clientID                  string
+	registered                map[eh.EventHandlerType]*clarimq.Consumer
+	registeredMu              sync.RWMutex
+	errCh                     chan error
+	ctx                       context.Context //nolint:containedctx // intended use
+	cancel                    context.CancelFunc
+	wg                        sync.WaitGroup
+	eventCodec                eh.EventCodec
+	publishConn               *clarimq.Connection
+	publisher                 *clarimq.Publisher
+	consumeConn               *clarimq.Connection
+	consumerMu                sync.RWMutex
+	useRetry                  bool
+	maxRetries                int64
+	maxRetriesExceededHandler MaxRetriesExceededHandler
+	maxRecoveryRetries        int64
+	consumerQuantity          int
+	queueDelays               []time.Duration
+	logger                    *logger
+	loggers                   []clarimq.Logger
+	publishingCache           clarimq.PublishingCache
+	tracer                    *tracygo.TracyGo
 }
 
 // NewEventBus creates an EventBus, with optional settings.

@@ -28,11 +28,12 @@ func WithLogging(loggers ...clarimq.Logger) Option {
 // it will use the last value until maxRetries has been reached. Use InfiniteRetries to never drop the message.
 //
 // Default maxRetries is Infinite.
-func WithRetry(maxRetries int64, delays []time.Duration) Option {
+func WithRetry(maxRetries int64, delays []time.Duration, handler MaxRetriesExceededHandler) Option {
 	return func(bus *EventBus) {
 		bus.useRetry = true
 		bus.maxRetries = maxRetries
 		bus.queueDelays = delays
+		bus.maxRetriesExceededHandler = handler
 	}
 }
 

@@ -8,6 +8,10 @@ import (
 	eh "github.com/Clarilab/eventhorizon"
 )
 
+const (
+	headerErrorMessage = "errorMessage"
+)
+
 // ErrCouldNotBeRouted is returned when a mandatory message could not be routed.
 var ErrCouldNotBeRouted = errors.New("message could not be routed")
 
