@@ -5,14 +5,14 @@ go 1.21
 require (
 	github.com/Clarilab/clarimq v1.5.0
 	github.com/Clarilab/eventhorizon v0.19.0
-	github.com/Clarilab/tracygo/v2 v2.1.0
+	github.com/Clarilab/tracygo/v2 v2.2.0
 	github.com/google/uuid v1.6.0
 )
 
 require (
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
-	github.com/klauspost/compress v1.17.0 // indirect
+	github.com/klauspost/compress v1.17.8 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -25,5 +25,5 @@ require (
 	go.mongodb.org/mongo-driver v1.8.0 // indirect
 	golang.org/x/crypto v0.15.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 )
