@@ -139,7 +139,7 @@ func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
 		clarimq.WithPublishOptionDeliveryMode(clarimq.PersistentDelivery),
 		clarimq.WithPublishOptionExchange(b.exchangeName),
 		clarimq.WithPublishOptionMessageID(uuid.NewString()),
-		clarimq.WithPublishOptionTracing(b.tracer.CorrelationIDromContext(ctx)),
+		clarimq.WithPublishOptionTracing(b.tracer.CorrelationIDFromContext(b.tracer.EnsureCorrelationID(ctx))),
 		clarimq.WithPublishOptionHeaders(
 			map[string]any{
 				aggregateTypeKey: event.AggregateType().String(),
