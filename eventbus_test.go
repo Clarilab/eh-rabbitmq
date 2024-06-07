@@ -147,7 +147,7 @@ func Test_Integration_ExternalConnections(t *testing.T) { //nolint:paralleltest 
 	waitTime := 5 * time.Second
 
 	t.Run("without external connections", func(t *testing.T) { //nolint:paralleltest // must not run in parallel
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			bus, err := rabbitmq.NewEventBus(
 				amqpURI,
 				"test-app",
@@ -180,7 +180,7 @@ func Test_Integration_ExternalConnections(t *testing.T) { //nolint:paralleltest 
 			t.Fatal("there should be no error:", err)
 		}
 
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			bus, err := rabbitmq.NewEventBus(
 				"it does not matter what the uri is",
 				"test-app",
