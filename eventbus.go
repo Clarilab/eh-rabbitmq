@@ -48,7 +48,7 @@ type EventBus struct {
 	topic                     string
 	addr                      string
 	clientID                  string
-	registered                map[eh.EventHandlerType]*clarimq.Consumer
+	registered                map[eh.EventHandlerType]*handler
 	registeredMu              sync.RWMutex
 	errCh                     chan error
 	ctx                       context.Context //nolint:containedctx // intended use
@@ -83,11 +83,11 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 		addr:               addr,
 		topic:              topic,
 		clientID:           clientID,
-		registered:         make(map[eh.EventHandlerType]*clarimq.Consumer),
+		registered:         make(map[eh.EventHandlerType]*handler),
 		errCh:              make(chan error, errChBuffSize),
 		ctx:                ctx,
 		cancel:             cancel,
-		eventCodec:         &json.EventCodec{},
+		eventCodec:         new(json.EventCodec),
 		maxRetries:         InfiniteRetries,
 		maxRecoveryRetries: InfiniteRetries,
 		tracer:             tracygo.New(),
@@ -123,6 +123,21 @@ func (b *EventBus) HandleEvent(ctx context.Context, event eh.Event) error {
 
 // PublishEvent publishes an event. Same as HandleEvent, but with better naming.
 func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
+	return b.publishEventToEventBus(ctx, event, b.newPublishOptions())
+}
+
+// PublishEventWithTopic publishes an event with options.
+func (b *EventBus) PublishEventWithOptions(ctx context.Context, event eh.Event, options ...PublishOption) error {
+	publishOptions := b.newPublishOptions()
+
+	for i := range options {
+		options[i](publishOptions)
+	}
+
+	return b.publishEventToEventBus(ctx, event, publishOptions)
+}
+
+func (b *EventBus) publishEventToEventBus(ctx context.Context, event eh.Event, publishOptions *publishOptions) error {
 	const errMessage = "failed to publish event: %w"
 
 	data, err := b.eventCodec.MarshalEvent(ctx, event)
@@ -132,12 +147,12 @@ func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
 
 	if err = b.publisher.PublishWithOptions(
 		ctx,
-		[]string{fmt.Sprintf("%s.%s", b.topic, event.EventType().String())},
+		[]string{fmt.Sprintf("%s.%s", publishOptions.topic, event.EventType().String())},
 		data,
 		clarimq.WithPublishOptionContentType("application/json"),
 		clarimq.WithPublishOptionMandatory(true),
 		clarimq.WithPublishOptionDeliveryMode(clarimq.PersistentDelivery),
-		clarimq.WithPublishOptionExchange(b.exchangeName),
+		clarimq.WithPublishOptionExchange(publishOptions.exchange),
 		clarimq.WithPublishOptionMessageID(uuid.NewString()),
 		clarimq.WithPublishOptionTracing(b.tracer.CorrelationIDFromContext(b.tracer.EnsureCorrelationID(ctx))),
 		clarimq.WithPublishOptionHeaders(
@@ -160,18 +175,33 @@ func (b *EventBus) PublishEvent(ctx context.Context, event eh.Event) error {
 }
 
 // AddHandler implements the AddHandler method of the eventhorizon.EventBus interface.
-func (b *EventBus) AddHandler(ctx context.Context, matcher eh.EventMatcher, handler eh.EventHandler) error {
+func (b *EventBus) AddHandler(ctx context.Context, matcher eh.EventMatcher, eventHandler eh.EventHandler) error {
+	return b.addHandlerToEventbus(ctx, matcher, eventHandler, b.newHandler())
+}
+
+// AddHandlerWithOptions adds a new eventhorizon.Eventhandler with options.
+func (b *EventBus) AddHandlerWithOptions(ctx context.Context, matcher eh.EventMatcher, eventHandler eh.EventHandler, options ...HandlerOption) error {
+	handler := b.newHandler()
+
+	for i := range options {
+		options[i](handler)
+	}
+
+	return b.addHandlerToEventbus(ctx, matcher, eventHandler, handler)
+}
+
+func (b *EventBus) addHandlerToEventbus(ctx context.Context, matcher eh.EventMatcher, eventHandler eh.EventHandler, handler *handler) error {
 	const errMessage = "failed to add handler: %w"
 
 	if matcher == nil {
 		return eh.ErrMissingMatcher
 	}
 
-	if handler == nil {
+	if eventHandler == nil {
 		return eh.ErrMissingHandler
 	}
 
-	handlerType := handler.HandlerType()
+	handlerType := eventHandler.HandlerType()
 
 	// Check handler existence.
 	b.registeredMu.Lock()
@@ -181,7 +211,9 @@ func (b *EventBus) AddHandler(ctx context.Context, matcher eh.EventMatcher, hand
 		return eh.ErrHandlerAlreadyAdded
 	}
 
-	consumer, err := b.declareConsumer(ctx, matcher, handler)
+	var err error
+
+	handler.Consumer, err = b.declareConsumer(ctx, matcher, eventHandler, handler.topic)
 	if err != nil {
 		return fmt.Errorf(errMessage, err)
 	}
@@ -191,7 +223,7 @@ func (b *EventBus) AddHandler(ctx context.Context, matcher eh.EventMatcher, hand
 	go b.handleCancel(handlerType)
 
 	// Register handler.
-	b.registered[handlerType] = consumer
+	b.registered[handlerType] = handler
 
 	return nil
 }

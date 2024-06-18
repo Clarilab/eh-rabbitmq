@@ -127,7 +127,7 @@ func (b *EventBus) watchConnectionErrors(conn *clarimq.Connection) {
 	}()
 }
 
-func (b *EventBus) declareConsumer(ctx context.Context, matcher eh.EventMatcher, handler eh.EventHandler) (*clarimq.Consumer, error) {
+func (b *EventBus) declareConsumer(ctx context.Context, matcher eh.EventMatcher, handler eh.EventHandler, topic string) (*clarimq.Consumer, error) {
 	const errMessage = "failed to declare consumer: %w"
 
 	queueName := fmt.Sprintf("%s_%s", b.appID, handler.HandlerType())
@@ -154,7 +154,7 @@ func (b *EventBus) declareConsumer(ctx context.Context, matcher eh.EventMatcher,
 		}))
 	}
 
-	for _, routingKey := range createFilter(b.topic, matcher) {
+	for _, routingKey := range createFilter(topic, matcher) {
 		optionFuncs = append(optionFuncs, clarimq.WithConsumerOptionRoutingKey(routingKey))
 	}
 
