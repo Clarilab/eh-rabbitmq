@@ -28,9 +28,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Clarilab/clarimq"
-	rabbitmq "github.com/Clarilab/eh-rabbitmq"
-	"github.com/Clarilab/eventhorizon"
+	"github.com/Clarilab/clarimq/v2"
+	rabbitmq "github.com/Clarilab/eh-rabbitmq/v2"
+	eh "github.com/Clarilab/eventhorizon"
 	"github.com/Clarilab/eventhorizon/eventbus"
 	"github.com/Clarilab/eventhorizon/mocks"
 	"github.com/Clarilab/eventhorizon/namespace"
@@ -68,7 +68,7 @@ func Test_Integration_RemoveHandler(t *testing.T) { //nolint:paralleltest // mus
 		handler := mocks.NewEventHandler("handler-1")
 		queueName := fmt.Sprintf("%s_%s", "app-id", handler.HandlerType())
 
-		if err := bus.AddHandler(context.Background(), eventhorizon.MatchAll{}, handler); err != nil {
+		if err := bus.AddHandler(context.Background(), eh.MatchAll{}, handler); err != nil {
 			t.Fatal("there should be no error:", err)
 		}
 
@@ -80,7 +80,7 @@ func Test_Integration_RemoveHandler(t *testing.T) { //nolint:paralleltest // mus
 			t.Fatal("there should be 1 consumer on the queue")
 		}
 
-		if err := bus.RemoveHandler(eventhorizon.EventHandlerType("handler-1")); err != nil {
+		if err := bus.RemoveHandler(eh.EventHandlerType("handler-1")); err != nil {
 			t.Fatal("there should be no error:", err)
 		}
 
@@ -94,7 +94,7 @@ func Test_Integration_RemoveHandler(t *testing.T) { //nolint:paralleltest // mus
 	})
 
 	t.Run("handler not registered", func(t *testing.T) { //nolint:paralleltest // must not run in parallel
-		err := bus.RemoveHandler(eventhorizon.EventHandlerType("handler-1"))
+		err := bus.RemoveHandler(eh.EventHandlerType("handler-1"))
 		if !errors.Is(err, rabbitmq.ErrHandlerNotRegistered) {
 			t.Fatal("error should be: 'handler not registered'", err)
 		}
@@ -106,14 +106,14 @@ func Test_Integration_EventBus(t *testing.T) { //nolint:paralleltest // must not
 		t.Skip("skipping integration test")
 	}
 
-	bus1, appID, err := newTestEventBus("")
+	bus1, appID, err := newTestEventBus("", rabbitmq.WithHandlerConsumeAfterAdd(true))
 	if err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
 	t.Cleanup(func() { bus1.Close() })
 
-	bus2, _, err := newTestEventBus(appID)
+	bus2, _, err := newTestEventBus(appID, rabbitmq.WithHandlerConsumeAfterAdd(true))
 	if err != nil {
 		t.Fatal("there should be no error:", err)
 	}
@@ -130,7 +130,7 @@ func Test_Integration_EventBusLoadTest(t *testing.T) { //nolint:paralleltest // 
 		t.Skip("skipping integration test")
 	}
 
-	bus, appID, err := newTestEventBus("")
+	bus, appID, err := newTestEventBus("", rabbitmq.WithHandlerConsumeAfterAdd(true))
 	if err != nil {
 		t.Fatal("there should be no error:", err)
 	}
@@ -222,7 +222,7 @@ func Test_Integration_MaxRetriesExceededHandler(t *testing.T) { //nolint:paralle
 	wg.Add(1)
 
 	// the max-retries-exceeded-handler
-	handler := rabbitmq.MaxRetriesExceededHandler(func(ctx context.Context, event eventhorizon.Event, errorMessage string) error {
+	handler := rabbitmq.MaxRetriesExceededHandler(func(ctx context.Context, event eh.Event, errorMessage string) error {
 		ns := namespace.FromContext(ctx)
 
 		if !strings.Contains(errorMessage, errTestError.Error()) {
@@ -263,14 +263,18 @@ func Test_Integration_MaxRetriesExceededHandler(t *testing.T) { //nolint:paralle
 	eventHandler := new(mockErrorEventHandler)
 
 	// add mock event handler that always returns an error
-	if err := bus.AddHandler(context.Background(), eventhorizon.MatchAll{}, eventHandler); err != nil {
+	if err := bus.AddHandler(context.Background(), eh.MatchAll{}, eventHandler); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	if bus.StartHandling(); err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
 	// publish test event
 	if err := bus.PublishEvent(
 		namespace.NewContext(context.Background(), "test-namespace"),
-		eventhorizon.NewEvent(
+		eh.NewEvent(
 			mocks.EventType,
 			mocks.EventData{Content: "event-content"},
 			time.Now(),
@@ -282,27 +286,80 @@ func Test_Integration_MaxRetriesExceededHandler(t *testing.T) { //nolint:paralle
 	wg.Wait()
 }
 
-type mockErrorEventHandler struct{}
+func Test_Integration_AddHandlerAfterHandlingAlreadyStarted(t *testing.T) { //nolint:paralleltest // must not run in parallel
+	bus, _, err := newTestEventBus("")
+	if err != nil {
+		t.Fatal("there should be no error:", err)
+	}
 
-func (*mockErrorEventHandler) HandlerType() eventhorizon.EventHandlerType {
-	return eventhorizon.EventHandlerType("mock-event-handler")
+	t.Cleanup(func() { bus.Close() })
+
+	// setup first handler
+
+	wg1 := new(sync.WaitGroup)
+	handler1 := &handler1{wg1}
+	wg1.Add(1)
+
+	ctx := context.Background()
+
+	if err = bus.SetupEventHandler(ctx, handler1); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	// start handling events
+
+	if err := bus.StartHandling(); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	// setup second handler AFTER handling already started
+	// the handler should automatically be started
+
+	wg2 := new(sync.WaitGroup)
+	handler2 := &handler2{wg2}
+	wg2.Add(1)
+
+	if err = bus.SetupEventHandler(ctx, handler2); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	handlers := bus.RegisteredHandlers()
+	if len(handlers) != 2 {
+		t.Fatal("there should be 2 registered handlers")
+	}
+
+	RegisterEvents()
+
+	defer UnregisterEvents()
+
+	if err := bus.PublishEventWithOptions(
+		ctx,
+		eh.NewEvent(Handler1Event, new(HandlerEventData), time.Now()),
+		rabbitmq.WithPublishingTopic(handler1Topic),
+	); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	if err := bus.PublishEventWithOptions(
+		ctx,
+		eh.NewEvent(Handler2Event, new(HandlerEventData), time.Now()),
+		rabbitmq.WithPublishingTopic(handler2Topic),
+	); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	// waiting for handlers to handle events.
+	wg1.Wait()
+	wg2.Wait()
 }
 
-var errTestError = errors.New("error-from-mock-event-handler")
-
-func (*mockErrorEventHandler) HandleEvent(_ context.Context, _ eventhorizon.Event) error {
-	err := fmt.Errorf("failed to handle event: %w", errTestError)
-
-	return err
-}
-
-func newTestEventBus(appID string) (*rabbitmq.EventBus, string, error) {
+func newTestEventBus(appID string, options ...rabbitmq.Option) (*rabbitmq.EventBus, string, error) {
 	// Get a random app ID.
 	if appID == "" {
 		appID = createAppID()
 	}
 
-	bus, err := rabbitmq.NewEventBus("amqp://guest:guest@localhost:5672/", appID, uuid.New().String(), "eh-rabbitmq-test", "rabbit")
+	bus, err := rabbitmq.NewEventBus("amqp://guest:guest@localhost:5672/", appID, uuid.New().String(), "eh-rabbitmq-test", "rabbit", options...)
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create event bus: %w", err)
 	}
