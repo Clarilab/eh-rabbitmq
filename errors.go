@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Clarilab/clarimq"
+	"github.com/Clarilab/clarimq/v2"
 	eh "github.com/Clarilab/eventhorizon"
 )
 

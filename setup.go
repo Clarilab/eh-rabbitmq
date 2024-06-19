@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Clarilab/clarimq"
+	"github.com/Clarilab/clarimq/v2"
 	eh "github.com/Clarilab/eventhorizon"
 )
 
@@ -139,6 +139,10 @@ func (b *EventBus) declareConsumer(ctx context.Context, matcher eh.EventMatcher,
 		clarimq.WithExchangeOptionDeclare(true),
 		clarimq.WithExchangeOptionDurable(true),
 		clarimq.WithQueueOptionDurable(true),
+	}
+
+	if b.handlerConsumeAfterAdd || b.handlersStarted {
+		optionFuncs = append(optionFuncs, clarimq.WithConsumerOptionConsumeAfterCreation(true))
 	}
 
 	if b.consumerQuantity != 0 {

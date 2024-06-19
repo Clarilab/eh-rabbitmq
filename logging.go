@@ -3,7 +3,7 @@ package rabbitmq
 import (
 	"context"
 
-	"github.com/Clarilab/clarimq"
+	"github.com/Clarilab/clarimq/v2"
 )
 
 type logger struct {

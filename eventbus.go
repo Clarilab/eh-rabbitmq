@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Clarilab/clarimq"
+	"github.com/Clarilab/clarimq/v2"
 	eh "github.com/Clarilab/eventhorizon"
 	"github.com/Clarilab/eventhorizon/codec/json"
 	"github.com/Clarilab/tracygo/v2"
@@ -60,6 +60,8 @@ type EventBus struct {
 	consumeConn               *clarimq.Connection
 	consumerMu                sync.RWMutex
 	useRetry                  bool
+	handlerConsumeAfterAdd    bool
+	handlersStarted           bool
 	maxRetries                int64
 	maxRetriesExceededHandler MaxRetriesExceededHandler
 	maxRecoveryRetries        int64
@@ -224,6 +226,25 @@ func (b *EventBus) addHandlerToEventbus(ctx context.Context, matcher eh.EventMat
 
 	// Register handler.
 	b.registered[handlerType] = handler
+
+	return nil
+}
+
+// StartHandling starts handling of all registered handlers.
+func (b *EventBus) StartHandling() error {
+	const errMessage = "failed to start handling: %w"
+
+	if b.handlerConsumeAfterAdd {
+		return nil // handlers are already running
+	}
+
+	for i := range b.registered {
+		if err := b.registered[i].Start(); err != nil {
+			return fmt.Errorf(errMessage, err)
+		}
+	}
+
+	b.handlersStarted = true
 
 	return nil
 }
