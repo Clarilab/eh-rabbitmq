@@ -38,10 +38,6 @@ import (
 )
 
 func Test_Integration_AddHandler(t *testing.T) { //nolint:paralleltest // must not run in parallel
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
 	bus, _, err := newTestEventBus("")
 	if err != nil {
 		t.Fatal("there should be no error:", err)
@@ -53,10 +49,6 @@ func Test_Integration_AddHandler(t *testing.T) { //nolint:paralleltest // must n
 }
 
 func Test_Integration_RemoveHandler(t *testing.T) { //nolint:paralleltest // must not run in parallel
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
 	bus, _, err := newTestEventBus("app-id")
 	if err != nil {
 		t.Fatal("there should be no error:", err)
@@ -102,10 +94,6 @@ func Test_Integration_RemoveHandler(t *testing.T) { //nolint:paralleltest // mus
 }
 
 func Test_Integration_EventBus(t *testing.T) { //nolint:paralleltest // must not run in parallel
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
 	bus1, appID, err := newTestEventBus("", rabbitmq.WithHandlerConsumeAfterAdd(true))
 	if err != nil {
 		t.Fatal("there should be no error:", err)
@@ -126,10 +114,6 @@ func Test_Integration_EventBus(t *testing.T) { //nolint:paralleltest // must not
 }
 
 func Test_Integration_EventBusLoadTest(t *testing.T) { //nolint:paralleltest // must not run in parallel
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
 	bus, appID, err := newTestEventBus("", rabbitmq.WithHandlerConsumeAfterAdd(true))
 	if err != nil {
 		t.Fatal("there should be no error:", err)
