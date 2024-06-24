@@ -1,7 +1,7 @@
 github.com/Clarilab/clarimq/v2 v2.0.0 h1:VnKg66hNHNn5A0uvUVf7Z6GcROoymi0VMadSTtaS9Tw=
 github.com/Clarilab/clarimq/v2 v2.0.0/go.mod h1:WM5ctLnLarhFBq/gEencDMysJaFjdEos2X+l6L0flpw=
-github.com/Clarilab/eventhorizon v0.19.0 h1:GYQKAsHNo6wWuBHvZdHEK6NaWZ4QsLh52L7aKgbX4vI=
-github.com/Clarilab/eventhorizon v0.19.0/go.mod h1:25VNMNBzi14uG8B2zE9ON5VejJVBUJOm3ZtWmKROceM=
+github.com/Clarilab/eventhorizon v0.19.1 h1:vMQhlatTrcN9Zy/Nx8PWc5NgrUT7FKvpfYttEGe1OQY=
+github.com/Clarilab/eventhorizon v0.19.1/go.mod h1:25VNMNBzi14uG8B2zE9ON5VejJVBUJOm3ZtWmKROceM=
 github.com/Clarilab/tracygo/v2 v2.3.0 h1:pnkAFoI/IgaihXZjMiejbVDOhqeJvyCZNbjuaST7qDc=
 github.com/Clarilab/tracygo/v2 v2.3.0/go.mod h1:C+4h+9wtBogyC5Kmlrl/kcs1CTMnUEsQegZfZN2CzEg=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
