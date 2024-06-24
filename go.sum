@@ -1,5 +1,5 @@
-github.com/Clarilab/clarimq v1.5.0 h1:OteHRSNyMK7+YDmja5a4BZLGEpHYTwq1mfQjyZuRZ0I=
-github.com/Clarilab/clarimq v1.5.0/go.mod h1:cT3V5uZiTR7oqIqma734Mbb8QtVIu0wyu7wPoN3yWZg=
+github.com/Clarilab/clarimq/v2 v2.0.0 h1:VnKg66hNHNn5A0uvUVf7Z6GcROoymi0VMadSTtaS9Tw=
+github.com/Clarilab/clarimq/v2 v2.0.0/go.mod h1:WM5ctLnLarhFBq/gEencDMysJaFjdEos2X+l6L0flpw=
 github.com/Clarilab/eventhorizon v0.19.0 h1:GYQKAsHNo6wWuBHvZdHEK6NaWZ4QsLh52L7aKgbX4vI=
 github.com/Clarilab/eventhorizon v0.19.0/go.mod h1:25VNMNBzi14uG8B2zE9ON5VejJVBUJOm3ZtWmKROceM=
 github.com/Clarilab/tracygo/v2 v2.3.0 h1:pnkAFoI/IgaihXZjMiejbVDOhqeJvyCZNbjuaST7qDc=

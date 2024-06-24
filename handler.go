@@ -1,7 +1,7 @@
 package rabbitmq
 
 import (
-	"github.com/Clarilab/clarimq"
+	"github.com/Clarilab/clarimq/v2"
 )
 
 type handler struct {

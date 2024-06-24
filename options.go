@@ -3,7 +3,7 @@ package rabbitmq
 import (
 	"time"
 
-	"github.com/Clarilab/clarimq"
+	"github.com/Clarilab/clarimq/v2"
 	eh "github.com/Clarilab/eventhorizon"
 )
 
@@ -70,5 +70,12 @@ func WithClariMQConnections(publishingConn *clarimq.Connection, consumeConn *cla
 func WithConsumerQuantity(concurrency int) Option {
 	return func(b *EventBus) {
 		b.consumerQuantity = concurrency
+	}
+}
+
+// WithHandlerConsumeAfterAdd allows handlers to start consuming immediately after they have been added.
+func WithHandlerConsumeAfterAdd(consumeAfterAdd bool) Option {
+	return func(b *EventBus) {
+		b.handlerConsumeAfterAdd = consumeAfterAdd
 	}
 }
