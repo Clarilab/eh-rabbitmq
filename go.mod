@@ -3,8 +3,8 @@ module github.com/Clarilab/eh-rabbitmq/v2
 go 1.22.4
 
 require (
-	github.com/Clarilab/clarimq/v2 v2.0.0
-	github.com/Clarilab/eventhorizon v0.19.0
+	github.com/Clarilab/clarimq/v2 v2.1.0
+	github.com/Clarilab/eventhorizon v0.20.0
 	github.com/Clarilab/tracygo/v2 v2.3.0
 	github.com/google/uuid v1.6.0
 )
