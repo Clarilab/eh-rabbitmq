@@ -12,14 +12,19 @@ const (
 	headerErrorMessage = "errorMessage"
 )
 
-// ErrCouldNotBeRouted is returned when a mandatory message could not be routed.
-var ErrCouldNotBeRouted = errors.New("message could not be routed")
+var (
+	// ErrCouldNotBeRouted is returned when a mandatory message could not be routed.
+	ErrCouldNotBeRouted = errors.New("message could not be routed")
 
-// ErrFailedToPublishChannelClosed occurs when the channel accessed but is closed.
-var ErrFailedToPublishChannelClosed = errors.New("amqp channel is closed")
+	// ErrFailedToPublishChannelClosed occurs when the channel accessed but is closed.
+	ErrFailedToPublishChannelClosed = errors.New("amqp channel is closed")
 
-// ErrErrHandlerNotRegistered is returned when calling RemoveHandler with a handler that is not registered.
-var ErrHandlerNotRegistered = errors.New("handler not registered")
+	// ErrErrHandlerNotRegistered is returned when calling RemoveHandler with a handler that is not registered.
+	ErrHandlerNotRegistered = errors.New("handler not registered")
+
+	// ErrInvalidEventHandler when an invalid eventhorizon.EventHandler was provided.
+	ErrInvalidEventHandler = errors.New("invalid event handler")
+)
 
 type AMQPError clarimq.AMQPError
 

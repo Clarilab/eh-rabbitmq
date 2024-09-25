@@ -16,22 +16,6 @@ type EventHandler interface {
 	Topic() string
 }
 
-// SetupEventHandler sets up an Eventhandler to the event bus.
-func (b *EventBus) SetupEventHandler(ctx context.Context, eventHandler EventHandler) error {
-	const errMessage = "failed to setup event handler: %w"
-
-	if err := b.AddHandlerWithOptions(
-		ctx,
-		eventHandler.Events(),
-		eventHandler,
-		WithHandlerTopic(eventHandler.Topic()),
-	); err != nil {
-		return fmt.Errorf(errMessage, err)
-	}
-
-	return nil
-}
-
 // SetupEventHandlers sets up the given event handlers.
 func (b *EventBus) SetupEventHandlers(ctx context.Context, handlers ...EventHandler) error {
 	const errMessage = "failed to add event handlers: %w"
@@ -39,9 +23,59 @@ func (b *EventBus) SetupEventHandlers(ctx context.Context, handlers ...EventHand
 	for i := range handlers {
 		handler := handlers[i]
 
-		if err := b.SetupEventHandler(ctx, handler); err != nil {
+		err := b.setupEventHandler(ctx, handler.Events(), handler, handler.Topic())
+		if err != nil {
 			return fmt.Errorf(errMessage, err)
 		}
+	}
+
+	return nil
+}
+
+// SetupEventHandlersWithMiddleware sets up every given handler with the given middlewares.
+func (b *EventBus) SetupEventHandlersWithMiddleware(
+	ctx context.Context,
+	middleware []eh.EventHandlerMiddleware,
+	handlers ...EventHandler,
+) error {
+	const errMessage = "failed to add event handlers: %w"
+
+	for i := range handlers {
+		eventHandler := handlers[i]
+
+		handler, ok := eventHandler.(eh.EventHandler)
+		if !ok {
+			return fmt.Errorf(errMessage, ErrInvalidEventHandler)
+		}
+
+		if len(middleware) > 0 {
+			handler = eh.UseEventHandlerMiddleware(eventHandler, middleware...)
+		}
+
+		err := b.setupEventHandler(ctx, eventHandler.Events(), handler, eventHandler.Topic())
+		if err != nil {
+			return fmt.Errorf(errMessage, err)
+		}
+	}
+
+	return nil
+}
+
+func (b *EventBus) setupEventHandler(
+	ctx context.Context,
+	match eh.EventMatcher,
+	handler eh.EventHandler,
+	topic string,
+) error {
+	const errMessage = "failed to setup event handler: %w"
+
+	if err := b.AddHandlerWithOptions(
+		ctx,
+		match,
+		handler,
+		WithHandlerTopic(topic),
+	); err != nil {
+		return fmt.Errorf(errMessage, err)
 	}
 
 	return nil
