@@ -286,7 +286,7 @@ func Test_Integration_AddHandlerAfterHandlingAlreadyStarted(t *testing.T) { //no
 
 	ctx := context.Background()
 
-	if err = bus.SetupEventHandler(ctx, handler1); err != nil {
+	if err = bus.SetupEventHandlers(ctx, handler1); err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
@@ -303,7 +303,7 @@ func Test_Integration_AddHandlerAfterHandlingAlreadyStarted(t *testing.T) { //no
 	handler2 := &handler2{wg2}
 	wg2.Add(1)
 
-	if err = bus.SetupEventHandler(ctx, handler2); err != nil {
+	if err = bus.SetupEventHandlers(ctx, handler2); err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
@@ -314,7 +314,7 @@ func Test_Integration_AddHandlerAfterHandlingAlreadyStarted(t *testing.T) { //no
 
 	RegisterEvents()
 
-	defer UnregisterEvents()
+	t.Cleanup(UnregisterEvents)
 
 	if err := bus.PublishEventWithOptions(
 		ctx,
@@ -337,6 +337,46 @@ func Test_Integration_AddHandlerAfterHandlingAlreadyStarted(t *testing.T) { //no
 	wg2.Wait()
 }
 
+func Test_SetupEventHandlersWithMiddleware(t *testing.T) { //nolint:paralleltest // must not run in parallel
+	bus, _, err := newTestEventBus("")
+	if err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	t.Cleanup(func() { bus.Close() })
+
+	wg := new(sync.WaitGroup)
+	handler := &handler1{wg}
+
+	middleware := []eh.EventHandlerMiddleware{newTestEventHandlerMiddleware(wg)}
+
+	ctx := context.Background()
+
+	if err = bus.SetupEventHandlersWithMiddleware(ctx, middleware, handler); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	if err := bus.StartHandling(); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	RegisterEvents()
+
+	t.Cleanup(UnregisterEvents)
+
+	wg.Add(2) // 'wg.Done' expected to be called by the middleware and the actual handler
+
+	if err := bus.PublishEventWithOptions(
+		ctx,
+		eh.NewEvent(Handler1Event, new(HandlerEventData), time.Now()),
+		rabbitmq.WithPublishingTopic(handler1Topic),
+	); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	wg.Wait()
+}
+
 func newTestEventBus(appID string, options ...rabbitmq.Option) (*rabbitmq.EventBus, string, error) {
 	// Get a random app ID.
 	if appID == "" {
@@ -349,6 +389,34 @@ func newTestEventBus(appID string, options ...rabbitmq.Option) (*rabbitmq.EventB
 	}
 
 	return bus, appID, nil
+}
+
+func newTestEventHandlerMiddleware(wg *sync.WaitGroup) eh.EventHandlerMiddleware {
+	return func(h eh.EventHandler) eh.EventHandler {
+		return &testEventMiddlewareHandler{
+			inner: h,
+			wg:    wg,
+		}
+	}
+}
+
+type testEventMiddlewareHandler struct {
+	inner eh.EventHandler
+	wg    *sync.WaitGroup
+}
+
+func (m *testEventMiddlewareHandler) HandlerType() eh.EventHandlerType {
+	return m.inner.HandlerType()
+}
+
+func (m *testEventMiddlewareHandler) HandleEvent(ctx context.Context, event eh.Event) error {
+	if err := m.inner.HandleEvent(ctx, event); err != nil {
+		return err
+	}
+
+	m.wg.Done()
+
+	return nil
 }
 
 func createAppID() string {
