@@ -66,3 +66,43 @@ func Test_Integration_SetupEventHandlers(t *testing.T) { //nolint:paralleltest /
 	wg1.Wait()
 	wg2.Wait()
 }
+
+func Test_SetupEventHandlersWithMiddleware(t *testing.T) { //nolint:paralleltest // must not run in parallel
+	bus, _, err := newTestEventBus("")
+	if err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	t.Cleanup(func() { bus.Close() })
+
+	wg := new(sync.WaitGroup)
+	handler := &handler1{wg}
+
+	middleware := []eh.EventHandlerMiddleware{newTestEventHandlerMiddleware(wg)}
+
+	ctx := context.Background()
+
+	if err = bus.SetupEventHandlersWithMiddleware(ctx, middleware, handler); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	if err := bus.StartHandling(); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	RegisterEvents()
+
+	t.Cleanup(UnregisterEvents)
+
+	wg.Add(2) // 'wg.Done' expected to be called by the middleware and the actual handler
+
+	if err := bus.PublishEventWithOptions(
+		ctx,
+		eh.NewEvent(Handler1Event, new(HandlerEventData), time.Now()),
+		rabbitmq.WithPublishingTopic(handler1Topic),
+	); err != nil {
+		t.Fatal("there should be no error:", err)
+	}
+
+	wg.Wait()
+}

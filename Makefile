@@ -13,7 +13,7 @@ vuln:
 	govulncheck ./...
 
 test_integration:
-	./run_integration_tests.sh
+	go test -run "Test_Integration" -vet=off -failfast -race -coverprofile=coverage.out
 
 test_benchmark:
 	go test -benchmem -bench=. -failfast -race -coverprofile=coverage.out
