@@ -35,7 +35,34 @@ import (
 	"github.com/Clarilab/eventhorizon/mocks"
 	"github.com/Clarilab/eventhorizon/namespace"
 	"github.com/Clarilab/eventhorizon/uuid"
+	"github.com/orlangure/gnomock"
+	gnormq "github.com/orlangure/gnomock/preset/rabbitmq"
 )
+
+const (
+	rmqVersion = "3.13.3-management"
+	rmqUser    = "guest"
+	rmqPasswd  = "guest"
+)
+
+var (
+	rmqPort           int //nolint:gochecknoglobals // test code
+	rmqManagementPort int //nolint:gochecknoglobals // test code
+)
+
+func TestMain(m *testing.M) {
+	preset := gnormq.Preset(gnormq.WithUser(rmqUser, rmqPasswd), gnormq.WithVersion(rmqVersion))
+
+	container, err := gnomock.Start(preset, gnomock.WithUseLocalImagesFirst())
+	if err != nil {
+		panic(err)
+	}
+
+	rmqPort = container.DefaultPort()
+	rmqManagementPort = container.Port(gnormq.ManagementPort)
+
+	m.Run()
+}
 
 func Test_Integration_AddHandler(t *testing.T) { //nolint:paralleltest // must not run in parallel
 	bus, _, err := newTestEventBus("")
@@ -127,7 +154,7 @@ func Test_Integration_EventBusLoadTest(t *testing.T) { //nolint:paralleltest // 
 }
 
 func Test_Integration_ExternalConnections(t *testing.T) { //nolint:paralleltest // must not run in parallel
-	amqpURI := "amqp://guest:guest@localhost:5672/"
+	amqpURI := fmt.Sprintf("amqp://%s:%s@localhost:%d/", rmqUser, rmqPasswd, rmqPort)
 	waitTime := 5 * time.Second
 
 	t.Run("without external connections", func(t *testing.T) { //nolint:paralleltest // must not run in parallel
@@ -234,8 +261,10 @@ func Test_Integration_MaxRetriesExceededHandler(t *testing.T) { //nolint:paralle
 		return nil
 	})
 
+	uri := fmt.Sprintf("amqp://%s:%s@localhost:%d/", rmqUser, rmqPasswd, rmqPort)
+
 	// create event bus with retry options
-	bus, err := rabbitmq.NewEventBus("amqp://guest:guest@localhost:5672/", createAppID(), uuid.New().String(), "eh-rabbitmq-test", "rabbit",
+	bus, err := rabbitmq.NewEventBus(uri, createAppID(), uuid.New().String(), "eh-rabbitmq-test", "rabbit",
 		rabbitmq.WithRetry(2, []time.Duration{time.Second}, handler),
 	)
 	if err != nil {
@@ -286,7 +315,7 @@ func Test_Integration_AddHandlerAfterHandlingAlreadyStarted(t *testing.T) { //no
 
 	ctx := context.Background()
 
-	if err = bus.SetupEventHandler(ctx, handler1); err != nil {
+	if err = bus.SetupEventHandlers(ctx, handler1); err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
@@ -303,7 +332,7 @@ func Test_Integration_AddHandlerAfterHandlingAlreadyStarted(t *testing.T) { //no
 	handler2 := &handler2{wg2}
 	wg2.Add(1)
 
-	if err = bus.SetupEventHandler(ctx, handler2); err != nil {
+	if err = bus.SetupEventHandlers(ctx, handler2); err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
@@ -314,7 +343,7 @@ func Test_Integration_AddHandlerAfterHandlingAlreadyStarted(t *testing.T) { //no
 
 	RegisterEvents()
 
-	defer UnregisterEvents()
+	t.Cleanup(UnregisterEvents)
 
 	if err := bus.PublishEventWithOptions(
 		ctx,
@@ -343,12 +372,42 @@ func newTestEventBus(appID string, options ...rabbitmq.Option) (*rabbitmq.EventB
 		appID = createAppID()
 	}
 
-	bus, err := rabbitmq.NewEventBus("amqp://guest:guest@localhost:5672/", appID, uuid.New().String(), "eh-rabbitmq-test", "rabbit", options...)
+	uri := fmt.Sprintf("amqp://%s:%s@localhost:%d/", rmqUser, rmqPasswd, rmqPort)
+
+	bus, err := rabbitmq.NewEventBus(uri, appID, uuid.New().String(), "eh-rabbitmq-test", "rabbit", options...)
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create event bus: %w", err)
 	}
 
 	return bus, appID, nil
+}
+
+func newTestEventHandlerMiddleware(wg *sync.WaitGroup) eh.EventHandlerMiddleware {
+	return func(h eh.EventHandler) eh.EventHandler {
+		return &testEventMiddlewareHandler{
+			inner: h,
+			wg:    wg,
+		}
+	}
+}
+
+type testEventMiddlewareHandler struct {
+	inner eh.EventHandler
+	wg    *sync.WaitGroup
+}
+
+func (m *testEventMiddlewareHandler) HandlerType() eh.EventHandlerType {
+	return m.inner.HandlerType()
+}
+
+func (m *testEventMiddlewareHandler) HandleEvent(ctx context.Context, event eh.Event) error {
+	if err := m.inner.HandleEvent(ctx, event); err != nil {
+		return err
+	}
+
+	m.wg.Done()
+
+	return nil
 }
 
 func createAppID() string {
@@ -363,12 +422,14 @@ func expectConnectionCount(t *testing.T, expected int) error {
 
 	type rqmAPIResponse []struct{}
 
-	request, err := http.NewRequest(http.MethodGet, "http://localhost:15672/api/connections", nil)
+	url := fmt.Sprintf("http://localhost:%d/api/connections", rmqManagementPort)
+
+	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
-	request.SetBasicAuth("guest", "guest")
+	request.SetBasicAuth(rmqUser, rmqPasswd)
 
 	var apiResp rqmAPIResponse
 
@@ -389,12 +450,14 @@ func expectQueueConsumerCount(t *testing.T, queueName string, expected int) erro
 
 	type rqmAPIResponse []queue
 
-	request, err := http.NewRequest(http.MethodGet, "http://localhost:15672/api/queues", nil)
+	url := fmt.Sprintf("http://localhost:%d/api/queues", rmqManagementPort)
+
+	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 
-	request.SetBasicAuth("guest", "guest")
+	request.SetBasicAuth(rmqUser, rmqPasswd)
 
 	var apiResp rqmAPIResponse
 

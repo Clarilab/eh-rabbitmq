@@ -43,5 +43,8 @@ jobs:
         go-version-input: ">=1.22.4"
         check-latest: true
 
-    - name: Integration Test
-      run: make test_integration
+    - name: Tests
+      uses: robherley/go-test-action@v0
+      with:
+        moduleDirectory: .
+        testArguments: -race -short -vet=off ./...

@@ -17,6 +17,8 @@ type EventHandler interface {
 }
 
 // SetupEventHandler sets up an Eventhandler to the event bus.
+//
+// Deprecated: SetupEventHandler is deprecated please use SetupEventHandlers instead.
 func (b *EventBus) SetupEventHandler(ctx context.Context, eventHandler EventHandler) error {
 	const errMessage = "failed to setup event handler: %w"
 
@@ -39,9 +41,60 @@ func (b *EventBus) SetupEventHandlers(ctx context.Context, handlers ...EventHand
 	for i := range handlers {
 		handler := handlers[i]
 
-		if err := b.SetupEventHandler(ctx, handler); err != nil {
+		err := b.setupEHEventHandler(ctx, handler.Events(), handler, handler.Topic())
+		if err != nil {
 			return fmt.Errorf(errMessage, err)
 		}
+	}
+
+	return nil
+}
+
+// SetupEventHandlersWithMiddlewares sets up every given handler with the given middlewares.
+// Providing middlewares is optional.
+func (b *EventBus) SetupEventHandlersWithMiddlewares(
+	ctx context.Context,
+	middlewares []eh.EventHandlerMiddleware,
+	handlers ...EventHandler,
+) error {
+	const errMessage = "failed to add event handlers: %w"
+
+	for i := range handlers {
+		eventHandler := handlers[i]
+
+		handler, ok := eventHandler.(eh.EventHandler)
+		if !ok {
+			return fmt.Errorf(errMessage, ErrInvalidEventHandler)
+		}
+
+		if len(middlewares) > 0 {
+			handler = eh.UseEventHandlerMiddleware(eventHandler, middlewares...)
+		}
+
+		err := b.setupEHEventHandler(ctx, eventHandler.Events(), handler, eventHandler.Topic())
+		if err != nil {
+			return fmt.Errorf(errMessage, err)
+		}
+	}
+
+	return nil
+}
+
+func (b *EventBus) setupEHEventHandler(
+	ctx context.Context,
+	match eh.EventMatcher,
+	handler eh.EventHandler,
+	topic string,
+) error {
+	const errMessage = "failed to setup event handler: %w"
+
+	if err := b.AddHandlerWithOptions(
+		ctx,
+		match,
+		handler,
+		WithHandlerTopic(topic),
+	); err != nil {
+		return fmt.Errorf(errMessage, err)
 	}
 
 	return nil
