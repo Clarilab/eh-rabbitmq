@@ -78,11 +78,11 @@ func Test_SetupEventHandlersWithMiddleware(t *testing.T) { //nolint:paralleltest
 	wg := new(sync.WaitGroup)
 	handler := &handler1{wg}
 
-	middleware := []eh.EventHandlerMiddleware{newTestEventHandlerMiddleware(wg)}
+	middlewares := []eh.EventHandlerMiddleware{newTestEventHandlerMiddleware(wg)}
 
 	ctx := context.Background()
 
-	if err = bus.SetupEventHandlersWithMiddleware(ctx, middleware, handler); err != nil {
+	if err = bus.SetupEventHandlersWithMiddlewares(ctx, middlewares, handler); err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 

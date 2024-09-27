@@ -16,6 +16,24 @@ type EventHandler interface {
 	Topic() string
 }
 
+// SetupEventHandler sets up an Eventhandler to the event bus.
+//
+// Deprecated: SetupEventHandler is deprecated please use SetupEventHandlers instead.
+func (b *EventBus) SetupEventHandler(ctx context.Context, eventHandler EventHandler) error {
+	const errMessage = "failed to setup event handler: %w"
+
+	if err := b.AddHandlerWithOptions(
+		ctx,
+		eventHandler.Events(),
+		eventHandler,
+		WithHandlerTopic(eventHandler.Topic()),
+	); err != nil {
+		return fmt.Errorf(errMessage, err)
+	}
+
+	return nil
+}
+
 // SetupEventHandlers sets up the given event handlers.
 func (b *EventBus) SetupEventHandlers(ctx context.Context, handlers ...EventHandler) error {
 	const errMessage = "failed to add event handlers: %w"
@@ -23,7 +41,7 @@ func (b *EventBus) SetupEventHandlers(ctx context.Context, handlers ...EventHand
 	for i := range handlers {
 		handler := handlers[i]
 
-		err := b.setupEventHandler(ctx, handler.Events(), handler, handler.Topic())
+		err := b.setupEHEventHandler(ctx, handler.Events(), handler, handler.Topic())
 		if err != nil {
 			return fmt.Errorf(errMessage, err)
 		}
@@ -32,10 +50,10 @@ func (b *EventBus) SetupEventHandlers(ctx context.Context, handlers ...EventHand
 	return nil
 }
 
-// SetupEventHandlersWithMiddleware sets up every given handler with the given middlewares.
-func (b *EventBus) SetupEventHandlersWithMiddleware(
+// SetupEventHandlersWithMiddlewares sets up every given handler with the given middlewares.
+func (b *EventBus) SetupEventHandlersWithMiddlewares(
 	ctx context.Context,
-	middleware []eh.EventHandlerMiddleware,
+	middlewares []eh.EventHandlerMiddleware,
 	handlers ...EventHandler,
 ) error {
 	const errMessage = "failed to add event handlers: %w"
@@ -48,11 +66,11 @@ func (b *EventBus) SetupEventHandlersWithMiddleware(
 			return fmt.Errorf(errMessage, ErrInvalidEventHandler)
 		}
 
-		if len(middleware) > 0 {
-			handler = eh.UseEventHandlerMiddleware(eventHandler, middleware...)
+		if len(middlewares) > 0 {
+			handler = eh.UseEventHandlerMiddleware(eventHandler, middlewares...)
 		}
 
-		err := b.setupEventHandler(ctx, eventHandler.Events(), handler, eventHandler.Topic())
+		err := b.setupEHEventHandler(ctx, eventHandler.Events(), handler, eventHandler.Topic())
 		if err != nil {
 			return fmt.Errorf(errMessage, err)
 		}
@@ -61,7 +79,7 @@ func (b *EventBus) SetupEventHandlersWithMiddleware(
 	return nil
 }
 
-func (b *EventBus) setupEventHandler(
+func (b *EventBus) setupEHEventHandler(
 	ctx context.Context,
 	match eh.EventMatcher,
 	handler eh.EventHandler,
