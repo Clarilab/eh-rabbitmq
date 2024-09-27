@@ -51,6 +51,7 @@ func (b *EventBus) SetupEventHandlers(ctx context.Context, handlers ...EventHand
 }
 
 // SetupEventHandlersWithMiddlewares sets up every given handler with the given middlewares.
+// Providing middlewares is optional.
 func (b *EventBus) SetupEventHandlersWithMiddlewares(
 	ctx context.Context,
 	middlewares []eh.EventHandlerMiddleware,
