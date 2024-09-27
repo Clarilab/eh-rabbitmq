@@ -5,7 +5,7 @@ go 1.22.4
 require (
 	github.com/Clarilab/clarimq/v2 v2.1.0
 	github.com/Clarilab/eventhorizon v0.20.0
-	github.com/Clarilab/tracygo/v2 v2.3.0
+	github.com/Clarilab/tracygo/v2 v2.4.0
 	github.com/google/uuid v1.6.0
 	github.com/orlangure/gnomock v0.31.0
 )
@@ -23,7 +23,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/klauspost/compress v1.17.8 // indirect; indilgrect
+	github.com/klauspost/compress v1.17.9 // indirect; indilgrect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
@@ -47,11 +47,10 @@ require (
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/crypto v0.25.0 // indirect
+	golang.org/x/net v0.27.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/genproto v0.0.0-20211118181313-81c1377c94b1 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
 )
