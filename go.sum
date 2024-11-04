@@ -7,8 +7,8 @@ github.com/Clarilab/clarimq/v2 v2.1.0 h1:xuNVWHnRZGGcGpH2cCvvSgCirSz1OprpxJ6z8WS
 github.com/Clarilab/clarimq/v2 v2.1.0/go.mod h1:WM5ctLnLarhFBq/gEencDMysJaFjdEos2X+l6L0flpw=
 github.com/Clarilab/eventhorizon v0.20.0 h1:Bqht/iwGwnlG1TaUVdWU5q127r8F3Y2HQRjo1oxmCVU=
 github.com/Clarilab/eventhorizon v0.20.0/go.mod h1:25VNMNBzi14uG8B2zE9ON5VejJVBUJOm3ZtWmKROceM=
-github.com/Clarilab/tracygo/v2 v2.4.1 h1:r479JnT7VIN4PQlJvTBaVB+N7TM8u+UUEAAtlFyBWOg=
-github.com/Clarilab/tracygo/v2 v2.4.1/go.mod h1:fdEGUI+vXUGZod9AN7DrA6Vbl7s429PeXWthoa98WgI=
+github.com/Clarilab/tracygo/v2 v2.5.1 h1:GDhigR579/jtoIOweippJxyH61PPpNIN8SlrVioFgKY=
+github.com/Clarilab/tracygo/v2 v2.5.1/go.mod h1:fdEGUI+vXUGZod9AN7DrA6Vbl7s429PeXWthoa98WgI=
 github.com/Microsoft/go-winio v0.5.2 h1:a9IhgEQBCUEk6QCdml9CiJGhAws+YwffDHEMp1VMrpA=
 github.com/Microsoft/go-winio v0.5.2/go.mod h1:WpS1mjBmmwHBEWmogvA2mj8546UReBk4v8QkMxJ6pZY=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
