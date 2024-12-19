@@ -62,9 +62,13 @@ func (b *EventBus) handler(
 			ctx = NewContextWithNumRetries(ctx, retryCount)
 		}
 
+		if msg.CorrelationId != "" {
+			ctx = b.tracer.NewContextWithCorrelationID(ctx, msg.CorrelationId)
+		}
+
 		// Handle the event if it did match.
 		if err := handler.HandleEvent(
-			b.tracer.NewContextWithCorrelationID(ctx, msg.CorrelationId),
+			ctx,
 			event,
 		); err != nil {
 			b.sendErrToErrChannel(ctx, err, handler, event)
