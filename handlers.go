@@ -62,8 +62,13 @@ func (b *EventBus) handler(
 			ctx = NewContextWithNumRetries(ctx, retryCount)
 		}
 
-		if msg.CorrelationId != "" {
-			ctx = b.tracer.NewContextWithCorrelationID(ctx, msg.CorrelationId)
+		// Set correlationID - priority is eventBody -> messageProperty -> autogenerate
+		if b.tracer.CorrelationIDFromContext(ctx) == "" {
+			if msg.CorrelationId != "" {
+				ctx = b.tracer.NewContextWithCorrelationID(ctx, msg.CorrelationId)
+			} else {
+				ctx = b.tracer.EnsureCorrelationID(ctx)
+			}
 		}
 
 		// Handle the event if it did match.
