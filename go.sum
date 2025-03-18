@@ -3,8 +3,8 @@ cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 h1:L/gRVlceqvL25UVaW/CKtUDjefjrs0SPonmDGUVOYP0=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/Clarilab/clarimq/v2 v2.1.0 h1:xuNVWHnRZGGcGpH2cCvvSgCirSz1OprpxJ6z8WSpNvQ=
-github.com/Clarilab/clarimq/v2 v2.1.0/go.mod h1:WM5ctLnLarhFBq/gEencDMysJaFjdEos2X+l6L0flpw=
+github.com/Clarilab/clarimq/v2 v2.2.0 h1:d7NZ2rzLoD9i5HSlGuQtfhY6R9bfV/g7Jp0sq6pwOlU=
+github.com/Clarilab/clarimq/v2 v2.2.0/go.mod h1:WM5ctLnLarhFBq/gEencDMysJaFjdEos2X+l6L0flpw=
 github.com/Clarilab/eventhorizon v0.21.0 h1:kT5cTGIeLxgSdZUWSiNAnyoPlHw05sQ2j9cw9LfwCqA=
 github.com/Clarilab/eventhorizon v0.21.0/go.mod h1:25VNMNBzi14uG8B2zE9ON5VejJVBUJOm3ZtWmKROceM=
 github.com/Clarilab/tracygo/v2 v2.5.2 h1:oeNkBuiWTrxaLA/kxBSqsAqs97IAy3AoXbFf8iy4tXI=
