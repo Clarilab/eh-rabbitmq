@@ -62,6 +62,7 @@ type EventBus struct {
 	useRetry                  bool
 	handlerConsumeAfterAdd    bool
 	handlersStarted           bool
+	publishMandatory          bool
 	maxRetries                int64
 	maxRetriesExceededHandler MaxRetriesExceededHandler
 	maxRecoveryRetries        int64
@@ -93,6 +94,7 @@ func NewEventBus(addr, appID, clientID, exchange, topic string, options ...Optio
 		maxRetries:         InfiniteRetries,
 		maxRecoveryRetries: InfiniteRetries,
 		tracer:             tracygo.New(),
+		publishMandatory:   true,
 	}
 
 	// Apply configuration options.
@@ -152,7 +154,7 @@ func (b *EventBus) publishEventToEventBus(ctx context.Context, event eh.Event, p
 		[]string{fmt.Sprintf("%s.%s", publishOptions.topic, event.EventType().String())},
 		data,
 		clarimq.WithPublishOptionContentType("application/json"),
-		clarimq.WithPublishOptionMandatory(true),
+		clarimq.WithPublishOptionMandatory(publishOptions.publishMandatory),
 		clarimq.WithPublishOptionDeliveryMode(clarimq.PersistentDelivery),
 		clarimq.WithPublishOptionExchange(publishOptions.exchange),
 		clarimq.WithPublishOptionMessageID(uuid.NewString()),

@@ -79,3 +79,11 @@ func WithHandlerConsumeAfterAdd(consumeAfterAdd bool) Option {
 		b.handlerConsumeAfterAdd = consumeAfterAdd
 	}
 }
+
+// WithMandatoryPublishing globally sets whether publishing should use the mandatory flag.
+// Enabled by default.
+func WithMandatoryPublishing(mandatory bool) Option {
+	return func(b *EventBus) {
+		b.publishMandatory = mandatory
+	}
+}
