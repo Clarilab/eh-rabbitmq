@@ -224,6 +224,7 @@ func (b *EventBus) addHandlerToEventbus(ctx context.Context, matcher eh.EventMat
 
 	// Handle until context is cancelled.
 	b.wg.Add(1)
+
 	go b.handleCancel(handlerType)
 
 	// Register handler.
@@ -257,6 +258,7 @@ func (b *EventBus) RemoveHandler(handlerType eh.EventHandlerType) error {
 
 	// Check handler existence.
 	b.registeredMu.RLock()
+
 	if _, ok := b.registered[handlerType]; !ok {
 		b.registeredMu.RUnlock()
 

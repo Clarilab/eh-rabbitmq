@@ -27,7 +27,6 @@ func (b *EventBus) setupConnections() error {
 	const errMessage = "failed to setup eventbus connections: %w"
 
 	var err error
-
 	if err = b.setupPublishConnection(); err != nil {
 		return fmt.Errorf(errMessage, err)
 	}
@@ -108,8 +107,10 @@ func (b *EventBus) watchConnectionErrors(conn *clarimq.Connection) {
 				return
 			}
 
-			var amqpErr *clarimq.AMQPError
-			var recoveryFailed *clarimq.RecoveryFailedError
+			var (
+				amqpErr        *clarimq.AMQPError
+				recoveryFailed *clarimq.RecoveryFailedError
+			)
 
 			switch {
 			case errors.As(err, &amqpErr):
