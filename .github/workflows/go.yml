@@ -26,15 +26,12 @@ jobs:
     - name: Vet
       run: make vet
 
-    # the official golanci-lint-action logs a lot of errors (https://github.com/golangci/golangci-lint-action/issues/135)
-    # therefore it's replaced with a manual approach
-    # - name: Lint
-    #   uses: golangci/golangci-lint-action@v3
-
     - name: Lint
-      run: |
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
-        golangci-lint run --out-format=github-actions
+      uses: golangci/golangci-lint-action@v8
+      with:
+        only-new-issues: true
+        version: "v2.2.0"
+        install-mode: "binary"
 
     - name: Vulnerability Check
       uses: golang/govulncheck-action@v1
