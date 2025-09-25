@@ -40,7 +40,7 @@ type RecoveryFailedError struct {
 
 // Error implements the Error method of the error interface.
 func (e *RecoveryFailedError) Error() string {
-	var str = "recovery failed: "
+	str := "recovery failed: "
 
 	if e.err != nil {
 		str += e.err.Error()

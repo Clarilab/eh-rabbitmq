@@ -1,14 +1,16 @@
 package rabbitmq
 
 type publishOptions struct {
-	topic    string
-	exchange string
+	topic            string
+	exchange         string
+	publishMandatory bool
 }
 
 func (b *EventBus) newPublishOptions() *publishOptions {
 	return &publishOptions{
-		topic:    b.topic,
-		exchange: b.exchangeName,
+		topic:            b.topic,
+		exchange:         b.exchangeName,
+		publishMandatory: b.publishMandatory,
 	}
 }
 
@@ -26,5 +28,13 @@ func WithPublishingTopic(topic string) PublishOption {
 func WithPublishingExchange(name string) PublishOption {
 	return func(p *publishOptions) {
 		p.exchange = name
+	}
+}
+
+// WithPublishingMandatory is an option to publish with or without mandatory flag.
+// Enabled by default.
+func WithPublishingMandatory(mandatory bool) PublishOption {
+	return func(p *publishOptions) {
+		p.publishMandatory = mandatory
 	}
 }

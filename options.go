@@ -54,7 +54,7 @@ func WithClariMQPublishingCache(publishingCache clarimq.PublishingCache) Option 
 }
 
 // WithClariMQConnections sets the connections used for publishing and consuming events.
-func WithClariMQConnections(publishingConn *clarimq.Connection, consumeConn *clarimq.Connection) Option {
+func WithClariMQConnections(publishingConn, consumeConn *clarimq.Connection) Option {
 	return func(bus *EventBus) {
 		if publishingConn != nil {
 			bus.publishConn = publishingConn
@@ -77,5 +77,13 @@ func WithConsumerQuantity(concurrency int) Option {
 func WithHandlerConsumeAfterAdd(consumeAfterAdd bool) Option {
 	return func(b *EventBus) {
 		b.handlerConsumeAfterAdd = consumeAfterAdd
+	}
+}
+
+// WithMandatoryPublishing globally sets whether publishing should use the mandatory flag.
+// Enabled by default.
+func WithMandatoryPublishing(mandatory bool) Option {
+	return func(b *EventBus) {
+		b.publishMandatory = mandatory
 	}
 }
