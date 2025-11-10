@@ -2,8 +2,8 @@ github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c h1:udKWzYgxTojEK
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/Clarilab/clarimq/v2 v2.2.0 h1:d7NZ2rzLoD9i5HSlGuQtfhY6R9bfV/g7Jp0sq6pwOlU=
 github.com/Clarilab/clarimq/v2 v2.2.0/go.mod h1:WM5ctLnLarhFBq/gEencDMysJaFjdEos2X+l6L0flpw=
-github.com/Clarilab/eventhorizon v0.21.3 h1:+/k1UkFFW5cCQHseNKi52gHNv4awwsb4o9s8XjvqYYU=
-github.com/Clarilab/eventhorizon v0.21.3/go.mod h1:25VNMNBzi14uG8B2zE9ON5VejJVBUJOm3ZtWmKROceM=
+github.com/Clarilab/eventhorizon v1.1.0 h1:CdK0/h2MmPcqRsbdQW4skHKV9jMgAnQU8NHLU+ubSRE=
+github.com/Clarilab/eventhorizon v1.1.0/go.mod h1:25VNMNBzi14uG8B2zE9ON5VejJVBUJOm3ZtWmKROceM=
 github.com/Clarilab/tracygo/v2 v2.6.0 h1:9J8P9rsGdIleuKT6zFrJrQIfLSr1QF6kxYirihlvDtA=
 github.com/Clarilab/tracygo/v2 v2.6.0/go.mod h1:5EcgvJTTIs5BtN0swRVvTBDVZQqg/wAtWrdc18Sy3cw=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
