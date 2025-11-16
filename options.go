@@ -63,6 +63,8 @@ func WithClariMQConnections(publishingConn, consumeConn *clarimq.Connection) Opt
 		if consumeConn != nil {
 			bus.consumeConn = consumeConn
 		}
+
+		bus.areExternalConnections = true
 	}
 }
 

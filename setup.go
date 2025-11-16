@@ -101,31 +101,38 @@ func (b *EventBus) establishConnection(options ...clarimq.ConnectionOption) (*cl
 }
 
 func (b *EventBus) watchConnectionErrors(conn *clarimq.Connection) {
-	go func() {
-		for err := range conn.NotifyErrors() {
-			if err == nil {
+	fn := func() {
+		for {
+			select {
+			case <-b.ctx.Done():
 				return
-			}
+			case err, ok := <-conn.NotifyErrors():
+				if !ok {
+					return
+				}
 
-			var (
-				amqpErr        *clarimq.AMQPError
-				recoveryFailed *clarimq.RecoveryFailedError
-			)
+				var (
+					amqpErr        *clarimq.AMQPError
+					recoveryFailed *clarimq.RecoveryFailedError
+				)
 
-			switch {
-			case errors.As(err, &amqpErr):
-				err := AMQPError(*amqpErr)
+				switch {
+				case errors.As(err, &amqpErr):
+					err := AMQPError(*amqpErr)
 
-				b.errCh <- &err
+					b.errCh <- &err
 
-			case errors.As(err, &recoveryFailed):
-				b.errCh <- &RecoveryFailedError{err, recoveryFailed.ConnectionName}
+				case errors.As(err, &recoveryFailed):
+					b.errCh <- &RecoveryFailedError{err, recoveryFailed.ConnectionName}
 
-			default:
-				b.errCh <- err
+				default:
+					b.errCh <- err
+				}
 			}
 		}
-	}()
+	}
+
+	b.wg.Go(fn)
 }
 
 func (b *EventBus) declareConsumer(ctx context.Context, matcher eh.EventMatcher, handler eh.EventHandler, topic string) (*clarimq.Consumer, error) {

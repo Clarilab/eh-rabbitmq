@@ -59,6 +59,7 @@ type EventBus struct {
 	publisher                 *clarimq.Publisher
 	consumeConn               *clarimq.Connection
 	consumerMu                sync.RWMutex
+	areExternalConnections    bool
 	useRetry                  bool
 	handlerConsumeAfterAdd    bool
 	handlersStarted           bool
@@ -223,9 +224,7 @@ func (b *EventBus) addHandlerToEventbus(ctx context.Context, matcher eh.EventMat
 	}
 
 	// Handle until context is cancelled.
-	b.wg.Add(1)
-
-	go b.handleCancel(handlerType)
+	b.wg.Go(func() { b.handleCancel(handlerType) })
 
 	// Register handler.
 	b.registered[handlerType] = handler
@@ -302,12 +301,18 @@ func (b *EventBus) Close() error {
 	b.cancel()
 	b.wg.Wait()
 
-	if err := b.publishConn.Close(); err != nil {
+	if err := b.publisher.Close(); err != nil {
 		return fmt.Errorf(errMessage, err)
 	}
 
-	if err := b.consumeConn.Close(); err != nil {
-		return fmt.Errorf(errMessage, err)
+	if !b.areExternalConnections {
+		if err := b.publishConn.Close(); err != nil {
+			return fmt.Errorf(errMessage, err)
+		}
+
+		if err := b.consumeConn.Close(); err != nil {
+			return fmt.Errorf(errMessage, err)
+		}
 	}
 
 	b.logger.logInfo(context.Background(), "eventbus gracefully closed")
