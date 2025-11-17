@@ -15,11 +15,7 @@ const (
 // MaxRetriesExceededHandler is a function that is called when the maximum number of retries has been reached.
 type MaxRetriesExceededHandler func(ctx context.Context, event eh.Event, errorMessage string) error
 
-func (b *EventBus) handleCancel(
-	handlerType eh.EventHandlerType,
-) {
-	defer b.wg.Done()
-
+func (b *EventBus) handleCancel(handlerType eh.EventHandlerType) {
 	<-b.ctx.Done()
 
 	b.registeredMu.RLock()
@@ -35,11 +31,7 @@ func (b *EventBus) handleCancel(
 	}
 }
 
-func (b *EventBus) handler(
-	ctx context.Context,
-	matcher eh.EventMatcher,
-	handler eh.EventHandler,
-) func(d *clarimq.Delivery) clarimq.Action {
+func (b *EventBus) handler(ctx context.Context, matcher eh.EventMatcher, handler eh.EventHandler) func(d *clarimq.Delivery) clarimq.Action {
 	return func(msg *clarimq.Delivery) clarimq.Action {
 		event, ctx, err := b.eventCodec.UnmarshalEvent(ctx, msg.Body)
 		if err != nil {

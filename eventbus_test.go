@@ -186,10 +186,22 @@ func Test_Integration_ExternalConnections(t *testing.T) { //nolint:paralleltest 
 			t.Fatal("there should be no error:", err)
 		}
 
+		t.Cleanup(func() {
+			if err := publishConn.Close(); err != nil {
+				t.Fatal("there should be no error:", err)
+			}
+		})
+
 		consumeConn, err := clarimq.NewConnection(amqpURI)
 		if err != nil {
 			t.Fatal("there should be no error:", err)
 		}
+
+		t.Cleanup(func() {
+			if err := consumeConn.Close(); err != nil {
+				t.Fatal("there should be no error:", err)
+			}
+		})
 
 		for range 3 {
 			bus, err := rabbitmq.NewEventBus(

@@ -21,7 +21,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: ">=1.24.1"
+        go-version: ">=1.25.3"
 
     - name: Vet
       run: make vet
@@ -30,14 +30,14 @@ jobs:
       uses: golangci/golangci-lint-action@v8
       with:
         only-new-issues: true
-        version: "v2.2.0"
+        version: "v2.5.0"
         install-mode: "binary"
 
     - name: Vulnerability Check
       uses: golang/govulncheck-action@v1
       with:
         go-package: ./...
-        go-version-input: ">=1.24.1"
+        go-version-input: ">=1.25.3"
         check-latest: true
 
     - name: Tests

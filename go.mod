@@ -1,6 +1,6 @@
 module github.com/Clarilab/eh-rabbitmq/v2
 
-go 1.24.1
+go 1.25.3
 
 require (
 	github.com/Clarilab/clarimq/v2 v2.2.0
