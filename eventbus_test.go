@@ -292,7 +292,7 @@ func Test_Integration_MaxRetriesExceededHandler(t *testing.T) { //nolint:paralle
 		t.Fatal("there should be no error:", err)
 	}
 
-	if bus.StartHandling(); err != nil {
+	if err = bus.StartHandling(); err != nil {
 		t.Fatal("there should be no error:", err)
 	}
 

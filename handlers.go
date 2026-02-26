@@ -6,6 +6,7 @@ import (
 
 	"github.com/Clarilab/clarimq/v2"
 	eh "github.com/Clarilab/eventhorizon"
+	"github.com/Clarilab/eventhorizon/metrics"
 )
 
 const (
@@ -61,8 +62,14 @@ func (b *EventBus) handler(ctx context.Context, matcher eh.EventMatcher, handler
 
 		ctx = b.tracer.EnsureCorrelationID(ctx)
 
+		// Add metrics middleware if it exists
+		eventHandler := handler
+		if middleware := metrics.GetEventMiddleware(); middleware != nil {
+			eventHandler = middleware(handler)
+		}
+
 		// Handle the event if it did match.
-		if err := handler.HandleEvent(
+		if err := eventHandler.HandleEvent(
 			ctx,
 			event,
 		); err != nil {
