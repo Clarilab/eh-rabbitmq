@@ -7,6 +7,7 @@ import (
 	"github.com/Clarilab/clarimq/v2"
 	eh "github.com/Clarilab/eventhorizon"
 	"github.com/Clarilab/eventhorizon/metrics"
+	"github.com/Clarilab/eventhorizon/tracing/telemetry"
 )
 
 const (
@@ -66,6 +67,11 @@ func (b *EventBus) handler(ctx context.Context, matcher eh.EventMatcher, handler
 		eventHandler := handler
 		if middleware := metrics.GetEventMiddleware(); middleware != nil {
 			eventHandler = middleware(handler)
+		}
+
+		// Add tracing middleware if it exists
+		if tracingMiddleware := telemetry.NewEventHandlerMiddleware(); tracingMiddleware != nil {
+			eventHandler = tracingMiddleware(handler)
 		}
 
 		// Handle the event if it did match.
