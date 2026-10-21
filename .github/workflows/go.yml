@@ -21,7 +21,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: ">=1.25.7"
+        go-version: ">=1.27.0"
 
     - name: Vet
       run: make vet
@@ -36,7 +36,7 @@ jobs:
       uses: golang/govulncheck-action@v1
       with:
         go-package: ./...
-        go-version-input: ">=1.25.7"
+        go-version-input: ">=1.27.0"
         check-latest: true
 
     - name: Tests
