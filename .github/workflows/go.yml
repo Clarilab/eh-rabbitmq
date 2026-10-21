@@ -40,7 +40,7 @@ jobs:
         check-latest: true
 
     - name: Tests
-      uses: robherley/go-test-action@v0
+      uses: robherley/go-test-action@v1
       with:
         moduleDirectory: .
         testArguments: -race -short -vet=off ./...
