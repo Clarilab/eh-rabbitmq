@@ -1,21 +1,20 @@
 module github.com/Clarilab/eh-rabbitmq/v2
 
-go 1.25.7
+go 1.27.1
 
 require (
-	github.com/Clarilab/clarimq/v2 v2.2.0
+	github.com/Clarilab/clarimq/v2 v2.3.0
 	github.com/Clarilab/eventhorizon v1.6.1
 	github.com/Clarilab/tracygo/v2 v2.6.0
 	github.com/google/uuid v1.6.0
 	github.com/orlangure/gnomock v0.32.0
 )
 
-require github.com/cespare/xxhash/v2 v2.3.0 // indirect
-
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/metrics v1.40.2 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
@@ -35,7 +34,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/rabbitmq/amqp091-go v1.14.0 // indirect
+	github.com/rabbitmq/amqp091-go v1.15.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/valyala/histogram v1.2.0 // indirect
